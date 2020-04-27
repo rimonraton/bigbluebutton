@@ -22,6 +22,7 @@ package org.bigbluebutton.presentation;
 import java.io.File;
 
 public final class UploadedPresentation {
+  private final String podId;
   private final String meetingId;
   private final String id;
   private final String name;
@@ -32,14 +33,24 @@ public final class UploadedPresentation {
   private final String baseUrl;
   private boolean isDownloadable = false;
   private boolean current = false;
+  private String authzToken;
+  private boolean conversionStarted = false;
 
-  public UploadedPresentation(String meetingId, String id, String name, String baseUrl, Boolean current) {
+  public UploadedPresentation(String podId,
+                              String meetingId,
+                              String id,
+                              String name,
+                              String baseUrl,
+                              Boolean current,
+                              String authzToken) {
+    this.podId = podId;
     this.meetingId = meetingId;
     this.id = id;
     this.name = name;
     this.baseUrl = baseUrl;
     this.isDownloadable = false;
     this.current = current;
+    this.authzToken = authzToken;
   }
 
   public File getUploadedFile() {
@@ -52,6 +63,10 @@ public final class UploadedPresentation {
 
   public String getMeetingId() {
     return meetingId;
+  }
+
+  public String getPodId() {
+    return podId;
   }
 
   public String getId() {
@@ -104,5 +119,17 @@ public final class UploadedPresentation {
 
   public void setCurrent(Boolean value) {
     this.current = value;
+  }
+
+  public String getAuthzToken() {
+    return authzToken;
+  }
+
+  public void startConversion() {
+    conversionStarted = true;
+  }
+
+  public boolean isConversionStarted() {
+    return conversionStarted;
   }
 }

@@ -1,5 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import cx from 'classnames';
+import _ from 'lodash';
 import { styles } from '../styles';
 
 const propTypes = {
@@ -7,19 +9,17 @@ const propTypes = {
 };
 
 export default class DropdownListTitle extends Component {
-
   constructor(props) {
     super(props);
     this.labelID = _.uniqueId('labelContext-');
   }
 
   render() {
-    const { intl, description } = this.props;
+    const { className } = this.props;
 
     return (
-      <li className={styles.title} aria-describedby={this.labelID}>
+      <li className={cx(styles.title, className)} aria-hidden>
         {this.props.children}
-        <div id={this.labelID} aria-label={description} />
       </li>
     );
   }

@@ -4,7 +4,6 @@ import SettingsService from '/imports/ui/services/settings';
 import Settings from './component';
 
 import {
-  getClosedCaptionLocales,
   getUserRoles,
   updateSettings,
   getAvailableLocales,
@@ -16,12 +15,9 @@ const SettingsContainer = props => (
 
 export default withTracker(() => ({
   audio: SettingsService.audio,
-  video: SettingsService.video,
+  dataSaving: SettingsService.dataSaving,
   application: SettingsService.application,
-  cc: SettingsService.cc,
-  participants: SettingsService.participants,
   updateSettings,
-  locales: getClosedCaptionLocales(),
   availableLocales: getAvailableLocales(),
   isModerator: getUserRoles() === 'MODERATOR',
 }))(SettingsContainer);

@@ -54,7 +54,7 @@ object FakeUserGenerator {
       RandomStringGenerator.randomAlphanumericString(10) + ".png"
 
     val ru = RegisteredUsers.create(userId = id, extId, name, role,
-      authToken, avatarURL, guest, authed, waitingForAcceptance = true)
+      authToken, avatarURL, guest, authed, guestStatus = GuestStatus.ALLOW)
     RegisteredUsers.add(users, ru)
     ru
   }
@@ -63,7 +63,7 @@ object FakeUserGenerator {
                           listenOnly: Boolean): VoiceUserState = {
     val voiceUserId = RandomStringGenerator.randomAlphanumericString(8)
     VoiceUserState(intId = user.id, voiceUserId = voiceUserId, callingWith, callerName = user.name,
-      callerNum = user.name, muted, talking, listenOnly)
+      callerNum = user.name, muted, talking, listenOnly, "freeswitch", System.currentTimeMillis())
   }
 
   def createFakeVoiceOnlyUser(callingWith: String, muted: Boolean, talking: Boolean,
@@ -72,7 +72,7 @@ object FakeUserGenerator {
     val intId = "v_" + RandomStringGenerator.randomAlphanumericString(16)
     val name = getRandomElement(firstNames, random) + " " + getRandomElement(lastNames, random)
     VoiceUserState(intId, voiceUserId = voiceUserId, callingWith, callerName = name,
-      callerNum = name, muted, talking, listenOnly)
+      callerNum = name, muted, talking, listenOnly, "freeswitch", System.currentTimeMillis())
   }
 
   def createFakeWebcamStreamFor(userId: String, viewers: Set[String]): WebcamStream = {

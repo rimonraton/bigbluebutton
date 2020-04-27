@@ -1,12 +1,14 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { styles } from '../styles.scss';
 
 const ANNOTATION_CONFIG = Meteor.settings.public.whiteboard.annotations;
-const MESSAGE_FREQUENCY = ANNOTATION_CONFIG.message_frequency;
 const DRAW_START = ANNOTATION_CONFIG.status.start;
 const DRAW_UPDATE = ANNOTATION_CONFIG.status.update;
 const DRAW_END = ANNOTATION_CONFIG.status.end;
+
+// maximum value of z-index to prevent other things from overlapping
+const MAX_Z_INDEX = (2 ** 31) - 1;
+const POINTS_TO_BUFFER = 5;
 
 export default class PencilDrawListener extends Component {
   constructor() {
@@ -15,9 +17,6 @@ export default class PencilDrawListener extends Component {
     // to track the status of drawing
     this.isDrawing = false;
     this.points = [];
-
-    // id of the setInterval()
-    this.intervalId = 0;
 
     this.mouseDownHandler = this.mouseDownHandler.bind(this);
     this.mouseMoveHandler = this.mouseMoveHandler.bind(this);
@@ -29,6 +28,7 @@ export default class PencilDrawListener extends Component {
     this.handleTouchMove = this.handleTouchMove.bind(this);
     this.handleTouchEnd = this.handleTouchEnd.bind(this);
     this.handleTouchCancel = this.handleTouchCancel.bind(this);
+    this.discardAnnotation = this.discardAnnotation.bind(this);
   }
 
   componentDidMount() {
@@ -44,14 +44,18 @@ export default class PencilDrawListener extends Component {
   }
 
   commonDrawStartHandler(clientX, clientY) {
-    // changing isDrawing to true
-    this.isDrawing = true;
+    const {
+      actions,
+    } = this.props;
 
     const {
       getTransformedSvgPoint,
       generateNewShapeId,
       svgCoordinateToPercentages,
-    } = this.props.actions;
+    } = actions;
+
+    // changing isDrawing to true
+    this.isDrawing = true;
 
     // sending the first message
     let transformedSvgPoint = getTransformedSvgPoint(clientX, clientY);
@@ -62,18 +66,19 @@ export default class PencilDrawListener extends Component {
     // sending the first message
     const _points = [transformedSvgPoint.x, transformedSvgPoint.y];
     this.handleDrawPencil(_points, DRAW_START, generateNewShapeId());
-
-    // All the DRAW_UPDATE messages will be send on timer by sendCoordinates func
-    this.intervalId = setInterval(this.sendCoordinates, MESSAGE_FREQUENCY);
   }
 
   commonDrawMoveHandler(clientX, clientY) {
     if (this.isDrawing) {
       const {
+        actions,
+      } = this.props;
+
+      const {
         checkIfOutOfBounds,
         getTransformedSvgPoint,
         svgCoordinateToPercentages,
-      } = this.props.actions;
+      } = actions;
 
       // get the transformed svg coordinate
       let transformedSvgPoint = getTransformedSvgPoint(clientX, clientY);
@@ -87,6 +92,10 @@ export default class PencilDrawListener extends Component {
       // saving the coordinate to the array
       this.points.push(transformedSvgPoint.x);
       this.points.push(transformedSvgPoint.y);
+
+      if (this.points.length > POINTS_TO_BUFFER) {
+        this.sendCoordinates();
+      }
     }
   }
 
@@ -108,6 +117,7 @@ export default class PencilDrawListener extends Component {
   }
 
   handleTouchMove(event) {
+    event.preventDefault();
     const { clientX, clientY } = event.changedTouches[0];
     this.commonDrawMoveHandler(clientX, clientY);
   }
@@ -122,17 +132,23 @@ export default class PencilDrawListener extends Component {
 
   // main mouse down handler
   mouseDownHandler(event) {
-    if (!this.isDrawing) {
-      window.addEventListener('mouseup', this.mouseUpHandler);
-      window.addEventListener('mousemove', this.mouseMoveHandler, true);
+    const isLeftClick = event.button === 0;
+    const isRightClick = event.button === 2;
 
-      const { clientX, clientY } = event;
-      this.commonDrawStartHandler(clientX, clientY);
+    if (!this.isDrawing) {
+      if (isLeftClick) {
+        window.addEventListener('mouseup', this.mouseUpHandler);
+        window.addEventListener('mousemove', this.mouseMoveHandler, true);
+
+        const { clientX, clientY } = event;
+        this.commonDrawStartHandler(clientX, clientY);
+      }
 
     // if you switch to a different window using Alt+Tab while mouse is down and release it
     // it wont catch mouseUp and will keep tracking the movements. Thus we need this check.
-    } else {
+    } else if (isRightClick) {
       this.sendLastMessage();
+      this.discardAnnotation();
     }
   }
 
@@ -149,23 +165,41 @@ export default class PencilDrawListener extends Component {
 
   sendCoordinates() {
     if (this.isDrawing && this.points.length > 0) {
-      const { getCurrentShapeId } = this.props.actions;
+      const {
+        actions,
+      } = this.props;
+
+      const { getCurrentShapeId } = actions;
       this.handleDrawPencil(this.points, DRAW_UPDATE, getCurrentShapeId());
       this.points = [];
     }
   }
 
   handleDrawPencil(points, status, id, dimensions) {
-    const { normalizeThickness, sendAnnotation } = this.props.actions;
-    const { whiteboardId, userId } = this.props;
+    const {
+      whiteboardId,
+      userId,
+      actions,
+      drawSettings,
+    } = this.props;
+
+    const {
+      normalizeThickness,
+      sendAnnotation,
+    } = actions;
+
+    const {
+      thickness,
+      color,
+    } = drawSettings;
 
     const annotation = {
       id,
       status,
       annotationType: 'pencil',
       annotationInfo: {
-        color: this.props.drawSettings.color,
-        thickness: normalizeThickness(this.props.drawSettings.thickness),
+        color,
+        thickness: normalizeThickness(thickness),
         points,
         id,
         whiteboardId,
@@ -182,17 +216,18 @@ export default class PencilDrawListener extends Component {
       annotation.annotationInfo.dimensions = dimensions;
     }
 
-    sendAnnotation(annotation);
+    sendAnnotation(annotation, whiteboardId);
   }
 
   sendLastMessage() {
-    // last message, clearing the interval
-    clearInterval(this.intervalId);
-    this.intervalId = 0;
-
     if (this.isDrawing) {
-      const { getCurrentShapeId } = this.props.actions;
-      const { physicalSlideWidth, physicalSlideHeight } = this.props;
+      const {
+        physicalSlideWidth,
+        physicalSlideHeight,
+        actions,
+      } = this.props;
+
+      const { getCurrentShapeId } = actions;
 
       this.handleDrawPencil(
         this.points,
@@ -217,14 +252,46 @@ export default class PencilDrawListener extends Component {
     window.removeEventListener('touchcancel', this.handleTouchCancel, true);
   }
 
+  discardAnnotation() {
+    const {
+      whiteboardId,
+      actions,
+    } = this.props;
+
+    const {
+      getCurrentShapeId,
+      addAnnotationToDiscardedList,
+      undoAnnotation,
+    } = actions;
+
+
+    undoAnnotation(whiteboardId);
+    addAnnotationToDiscardedList(getCurrentShapeId());
+  }
+
   render() {
+    const {
+      actions,
+    } = this.props;
+
+    const { contextMenuHandler } = actions;
+
+    const baseName = Meteor.settings.public.app.cdn + Meteor.settings.public.app.basename;
+    const pencilDrawStyle = {
+      width: '100%',
+      height: '100%',
+      touchAction: 'none',
+      zIndex: MAX_Z_INDEX,
+      cursor: `url('${baseName}/resources/images/whiteboard-cursor/pencil.png') 2 22, default`,
+    };
+
     return (
       <div
         onTouchStart={this.handleTouchStart}
         role="presentation"
-        className={styles.pencil}
-        style={{ width: '100%', height: '100%', touchAction: 'none' }}
+        style={pencilDrawStyle}
         onMouseDown={this.mouseDownHandler}
+        onContextMenu={contextMenuHandler}
       />
     );
   }

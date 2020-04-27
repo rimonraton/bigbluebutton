@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import RenderInBrowser from 'react-render-in-browser';
 import AnnotationHelpers from '../helpers';
 
 const DRAW_END = Meteor.settings.public.whiteboard.annotations.status.end;
@@ -30,9 +31,11 @@ export default class TextDrawComponent extends Component {
   }
 
   static getPresenterStyles(results) {
+    const isFireFox = document.body.className.includes('firefox');
+    const isSarafi = document.body.className.includes('safari');
     const styles = {
       fontFamily: 'Arial',
-      border: '1px solid black',
+      border: `${isFireFox || isSarafi ? '2px' : '1px'} solid black`,
       width: '100%',
       height: '100%',
       resize: 'none',
@@ -42,7 +45,6 @@ export default class TextDrawComponent extends Component {
       fontSize: results.calcedFontSize,
       padding: '0',
     };
-
     return styles;
   }
 
@@ -55,6 +57,7 @@ export default class TextDrawComponent extends Component {
   }
 
   componentDidMount() {
+    const { isActive, annotation } = this.props;
     // iOS doesn't show the keyboard if the input field was focused by event NOT invoked by a user
     // by it still technically moves the focus there
     // that's why we have a separate case for iOS - we don't focus here automatically
@@ -69,25 +72,28 @@ export default class TextDrawComponent extends Component {
 
     if (iOS || (Android && unsupportedFirefox)) { return; }
 
-    if (this.props.isActive && this.props.annotation.status !== DRAW_END) {
+    if (isActive && annotation.status !== DRAW_END) {
       this.handleFocus();
     }
   }
 
   shouldComponentUpdate(nextProps) {
-    return this.props.version !== nextProps.version ||
-      this.props.isActive !== nextProps.isActive;
+    const { version, isActive } = this.props;
+    return version !== nextProps.version
+      || isActive !== nextProps.isActive;
   }
 
   // If the user is drawing a text shape and clicks Undo - reset textShapeId
   componentWillUnmount() {
-    if (this.props.isActive) {
-      this.props.resetTextShapeActiveId();
+    const { isActive, resetTextShapeActiveId } = this.props;
+    if (isActive) {
+      resetTextShapeActiveId();
     }
   }
 
   onChangeHandler(event) {
-    this.props.setTextShapeValue(event.target.value);
+    const { setTextShapeValue } = this.props;
+    setTextShapeValue(event.target.value);
   }
 
   getCoordinates() {
@@ -125,9 +131,10 @@ export default class TextDrawComponent extends Component {
   }
 
   handleOnBlur() {
+    const { annotation } = this.props;
     // it'd be better to use ref to focus onBlur (handleFocus), but it doesn't want to work in FF
     // so we are back to the old way of doing things, getElementById and setTimeout
-    const node = document.getElementById(this.props.annotation.id);
+    const node = document.getElementById(annotation.id);
     setTimeout(() => { node.focus(); }, 1);
   }
 
@@ -137,21 +144,23 @@ export default class TextDrawComponent extends Component {
   }
 
   renderViewerTextShape(results) {
+    const { annotation } = this.props;
     const styles = TextDrawComponent.getViewerStyles(results);
 
     return (
       <g>
-        <clipPath id={this.props.annotation.id}>
-          <rect
-            x={results.x}
-            y={results.y}
-            width={results.width}
-            height={results.height}
-          />
-        </clipPath>
-
+        <RenderInBrowser only firefox>
+          <clipPath id={annotation.id}>
+            <rect
+              x={results.x}
+              y={results.y}
+              width={results.width}
+              height={results.height}
+            />
+          </clipPath>
+        </RenderInBrowser>
         <foreignObject
-          clipPath={`url(#${this.props.annotation.id})`}
+          clipPath={`url(#${annotation.id})`}
           x={results.x}
           y={results.y}
           width={results.width}
@@ -166,6 +175,7 @@ export default class TextDrawComponent extends Component {
   }
 
   renderPresenterTextShape(results) {
+    const { annotation } = this.props;
     const styles = TextDrawComponent.getPresenterStyles(results);
 
     return (
@@ -178,7 +188,7 @@ export default class TextDrawComponent extends Component {
           style={{ pointerEvents: 'none' }}
         >
           <textarea
-            id={this.props.annotation.id}
+            id={annotation.id}
             maxLength="1024"
             ref={(ref) => { this.textArea = ref; }}
             onChange={this.onChangeHandler}
@@ -192,9 +202,10 @@ export default class TextDrawComponent extends Component {
   }
 
   render() {
+    const { isActive, annotation } = this.props;
     const results = this.getCoordinates();
 
-    if (this.props.isActive && this.props.annotation.status !== DRAW_END) {
+    if (isActive && annotation.status !== DRAW_END) {
       return this.renderPresenterTextShape(results);
     }
     return this.renderViewerTextShape(results);

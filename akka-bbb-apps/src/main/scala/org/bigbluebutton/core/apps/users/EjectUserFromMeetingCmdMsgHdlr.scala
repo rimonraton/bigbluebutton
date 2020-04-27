@@ -1,60 +1,77 @@
 package org.bigbluebutton.core.apps.users
 
 import org.bigbluebutton.common2.msgs._
-import org.bigbluebutton.core.models._
 import org.bigbluebutton.core.running.{ LiveMeeting, OutMsgRouter }
-import org.bigbluebutton.core2.message.senders.MsgBuilder
+import org.bigbluebutton.core2.message.senders.Sender
+import org.bigbluebutton.core.apps.{ PermissionCheck, RightsManagementTrait }
+import org.bigbluebutton.core.models.{ EjectReasonCode, RegisteredUsers }
 
-trait EjectUserFromMeetingCmdMsgHdlr {
+trait EjectUserFromMeetingCmdMsgHdlr extends RightsManagementTrait {
   this: UsersApp =>
 
   val liveMeeting: LiveMeeting
   val outGW: OutMsgRouter
 
   def handleEjectUserFromMeetingCmdMsg(msg: EjectUserFromMeetingCmdMsg) {
-    for {
-      user <- Users2x.ejectFromMeeting(liveMeeting.users2x, msg.body.userId)
-    } yield {
-      RegisteredUsers.remove(msg.body.userId, liveMeeting.registeredUsers)
+    val meetingId = liveMeeting.props.meetingProp.intId
+    val userId = msg.body.userId
+    val ejectedBy = msg.body.ejectedBy
 
-      // send a message to client
-      val ejectFromMeetingClientEvent = MsgBuilder.buildUserEjectedFromMeetingEvtMsg(
-        liveMeeting.props.meetingProp.intId,
-        user.intId, msg.body.ejectedBy
-      )
-      outGW.send(ejectFromMeetingClientEvent)
-      log.info("Ejecting user from meeting (client msg).  meetingId=" + liveMeeting.props.meetingProp.intId +
-        " userId=" + msg.body.userId)
+    if (permissionFailed(
+      PermissionCheck.MOD_LEVEL,
+      PermissionCheck.VIEWER_LEVEL,
+      liveMeeting.users2x,
+      msg.header.userId
+    )) {
 
-      // send a system message to force disconnection
-      val ejectFromMeetingSystemEvent = MsgBuilder.buildDisconnectClientSysMsg(
-        liveMeeting.props.meetingProp.intId,
-        user.intId, "eject-user"
-      )
-      outGW.send(ejectFromMeetingSystemEvent)
-      log.info("Ejecting user from meeting (system msg).  meetingId=" + liveMeeting.props.meetingProp.intId +
-        " userId=" + msg.body.userId)
-
-      // send a user left event for the clients to update
-      val userLeftMeetingEvent = MsgBuilder.buildUserLeftMeetingEvtMsg(liveMeeting.props.meetingProp.intId, user.intId)
-      outGW.send(userLeftMeetingEvent)
-      log.info("User left meetingId=" + liveMeeting.props.meetingProp.intId + " userId=" + msg.body.userId)
-
+      val reason = "No permission to eject user from meeting."
+      PermissionCheck.ejectUserForFailedPermission(meetingId, msg.header.userId, reason, outGW, liveMeeting)
+    } else {
+      val reason = "user ejected by another user"
       for {
-        vu <- VoiceUsers.findWithIntId(liveMeeting.voiceUsers, msg.body.userId)
+        registeredUser <- RegisteredUsers.findWithUserId(userId, liveMeeting.registeredUsers)
+        ejectedByUser <- RegisteredUsers.findWithUserId(ejectedBy, liveMeeting.registeredUsers)
       } yield {
-        val ejectFromVoiceEvent = MsgBuilder.buildEjectUserFromVoiceConfSysMsg(
-          liveMeeting.props.meetingProp.intId,
-          liveMeeting.props.voiceProp.voiceConf, vu.voiceUserId
-        )
-        outGW.send(ejectFromVoiceEvent)
-        log.info("Ejecting user from voice.  meetingId=" + liveMeeting.props.meetingProp.intId + " userId=" + vu.intId)
-      }
+        if (registeredUser.externId != ejectedByUser.externId) {
+          // Eject users
+          //println("****************** User " + ejectedBy + " ejecting user " + userId)
+          // User might have joined using multiple browsers.
+          // Hunt down all registered users based on extern userid and eject them all.
+          // ralam april 21, 2020
+          RegisteredUsers.findAllWithExternUserId(registeredUser.externId, liveMeeting.registeredUsers) foreach { ru =>
+            //println("****************** User " + ejectedBy + " ejecting other user " + ru.id)
+            UsersApp.ejectUserFromMeeting(outGW, liveMeeting, ru.id, ejectedBy, reason, EjectReasonCode.EJECT_USER)
+            // send a system message to force disconnection
+            Sender.sendDisconnectClientSysMsg(meetingId, ru.id, ejectedBy, EjectReasonCode.EJECT_USER, outGW)
+          }
+        } else {
+          // User is ejecting self, so just eject this userid not all sessions if joined using multiple
+          // browsers. ralam april 23, 2020
+          //println("****************** User " + ejectedBy + " ejecting self " + userId)
+          UsersApp.ejectUserFromMeeting(outGW, liveMeeting, userId, ejectedBy, reason, EjectReasonCode.EJECT_USER)
+          // send a system message to force disconnection
+          Sender.sendDisconnectClientSysMsg(meetingId, userId, ejectedBy, EjectReasonCode.EJECT_USER, outGW)
+        }
 
-      if (user.presenter) {
-        automaticallyAssignPresenter(outGW, liveMeeting)
       }
     }
   }
+}
 
+trait EjectUserFromMeetingSysMsgHdlr {
+  this: UsersApp =>
+
+  val liveMeeting: LiveMeeting
+  val outGW: OutMsgRouter
+
+  def handleEjectUserFromMeetingSysMsg(msg: EjectUserFromMeetingSysMsg) {
+    val meetingId = liveMeeting.props.meetingProp.intId
+    val userId = msg.body.userId
+    val ejectedBy = msg.body.ejectedBy
+
+    val reason = "user ejected by a component on system"
+    UsersApp.ejectUserFromMeeting(outGW, liveMeeting, userId, ejectedBy, reason, EjectReasonCode.SYSTEM_EJECT_USER)
+    // send a system message to force disconnection
+    Sender.sendDisconnectClientSysMsg(meetingId, userId, ejectedBy, EjectReasonCode.SYSTEM_EJECT_USER, outGW)
+  }
 }

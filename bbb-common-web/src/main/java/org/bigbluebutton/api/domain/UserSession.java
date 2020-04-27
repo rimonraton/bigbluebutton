@@ -43,7 +43,9 @@ public class UserSession {
   public String defaultLayout = "NOLAYOUT";
   public String avatarURL;
   public String configXML;
-  
+  public String guestStatus = GuestPolicy.ALLOW;
+  public String clientUrl = null;
+
   private AtomicInteger connections = new AtomicInteger(0);
   
  

@@ -54,18 +54,35 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
             var logData:Object = UsersUtil.initLogData();
             logData.tags = ["apps"];
-            logData.message = "Error occured querying users.";
+            logData.logCode = "error_sending_query_users";
             LOGGER.info(JSON.stringify(logData));
-        }, JSON.stringify(message)
+        }, message
       );
     }
-    
+
+    public function queryForGuestsWaiting():void {
+      var message:Object = {
+        header: {name: "GetGuestsWaitingApprovalReqMsg", meetingId: UsersUtil.getInternalMeetingID(), userId: UsersUtil.getMyUserID()},
+        body: {requesterId: UsersUtil.getMyUserID()}
+      };
+
+      var _nc:ConnectionManager = BBB.initConnectionManager();
+      _nc.sendMessage2x( 
+        function(result:String):void { // On successful result
+        },
+        function(status:String):void { // status - On error occurred
+            var logData:Object = UsersUtil.initLogData();
+            logData.tags = ["apps"];
+            logData.message = "Error occurred querying guests waiting.";
+            LOGGER.info(JSON.stringify(logData));
+        }, message
+      );
+    }
+
     public function joinMeeting(): void {
-      LOGGER.info("Sending JOIN MEETING message");
-      
       var message:Object = {
         header: {name: "UserJoinMeetingReqMsg", meetingId: UsersUtil.getInternalMeetingID(), userId: UsersUtil.getMyUserID()},
-        body: {userId: UsersUtil.getMyUserID(), authToken: LiveMeeting.inst().me.authToken}
+        body: {userId: UsersUtil.getMyUserID(), authToken: LiveMeeting.inst().me.authToken, clientType: "FLASH"}
       };
       
       var _nc:ConnectionManager = BBB.initConnectionManager();
@@ -73,27 +90,29 @@ package org.bigbluebutton.modules.users.services
       }, function(status:String):void { // status - On error occurred
         var logData:Object = UsersUtil.initLogData();
         logData.tags = ["apps"];
-        logData.message = "Error occurred when user joining.";
+				logData.logCode = "error_sending_join_meeting";
         LOGGER.info(JSON.stringify(logData));
-      }, JSON.stringify(message));
+      }, message);
     }
 
     public function joinMeetingAfterReconnect(): void {
-      LOGGER.info("Sending JOIN MEETING AFTER RECONNECT message");
+			var logData:Object = UsersUtil.initLogData();
+			logData.tags = ["apps"];
+			logData.logCode = "joining_after_reconnect";
+			LOGGER.info(JSON.stringify(logData));
 
       var message:Object = {
         header: {name: "UserJoinMeetingAfterReconnectReqMsg", meetingId: UsersUtil.getInternalMeetingID(), userId: UsersUtil.getMyUserID()},
-        body: {userId: UsersUtil.getMyUserID(), authToken: LiveMeeting.inst().me.authToken}
+        body: {userId: UsersUtil.getMyUserID(), authToken: LiveMeeting.inst().me.authToken, clientType: "FLASH"}
       };
 
       var _nc:ConnectionManager = BBB.initConnectionManager();
       _nc.sendMessage2x(function(result:String):void { // On successful result
       }, function(status:String):void { // status - On error occurred
-          var logData:Object = UsersUtil.initLogData();
           logData.tags = ["apps"];
-          logData.message = "Error occurred when user joining after reconnect.";
+          logData.logCode = "error_sending_join_after_reconnect";
           LOGGER.info(JSON.stringify(logData));
-      }, JSON.stringify(message));
+      }, message);
     }
 
     public function assignPresenter(newPresenterUserId:String, newPresenterName:String, assignedBy:String):void {
@@ -107,9 +126,9 @@ package org.bigbluebutton.modules.users.services
       }, function(status:String):void { // status - On error occurred
         var logData:Object = UsersUtil.initLogData();
         logData.tags = ["apps"];
-        logData.message = "Error occurred assigning a presenter.";
+        logData.logCode = "error_sending_assign_presenter";
         LOGGER.info(JSON.stringify(logData));
-      }, JSON.stringify(message));
+      }, message);
     }
 
     public function emojiStatus(userID:String, emoji:String):void {
@@ -124,10 +143,10 @@ package org.bigbluebutton.modules.users.services
             }, function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured setting emoji status.";
+                logData.logCode = "error_sending_change_emoji";
                 LOGGER.info(JSON.stringify(logData));
             },
-          JSON.stringify(message)
+          message
         );
 		}
 
@@ -140,9 +159,9 @@ package org.bigbluebutton.modules.users.services
 			}, function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured creating breakout rooms.";
+				logData.logCode = "error_sending_create_breakout";
 				LOGGER.info(JSON.stringify(logData));
-			}, JSON.stringify(message));
+			}, message);
 		}
 
 		public function requestBreakoutJoinUrl(parentMeetingId:String, breakoutMeetingId:String, userId:String):void {
@@ -154,9 +173,9 @@ package org.bigbluebutton.modules.users.services
 			}, function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured requesting breakout room join url.";
+				logData.logCode = "error_sending_request_breakout_url";
 				LOGGER.info(JSON.stringify(logData));
-			}, JSON.stringify(message));
+			}, message);
 		}
 		
 		public function listenInOnBreakout(fromMeetingId:String, toMeetingId:String, userId:String):void {
@@ -171,9 +190,9 @@ package org.bigbluebutton.modules.users.services
 			}, function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured listen on breakout room.";
+				logData.logCode = "error_sending_listen_on_breakout";
 				LOGGER.info(JSON.stringify(logData));
-			}, JSON.stringify(message));
+			}, message);
 		}
 
 		public function endAllBreakoutRooms(meetingId:String):void {
@@ -185,9 +204,9 @@ package org.bigbluebutton.modules.users.services
 			}, function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured requesting breakout room join url.";
+				logData.logCode = "error_sending_end_breakout";
 				LOGGER.info(JSON.stringify(logData));
-			}, JSON.stringify(message));
+			}, message);
 		}
 
 		public function addStream(userID:String, streamName:String):void {
@@ -199,9 +218,11 @@ package org.bigbluebutton.modules.users.services
 			}, function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured sharing webcam.";
+				logData.userId = userID;
+				logData.streamId = streamName;
+				logData.logCode = "error_sending_cam_broadcast_start";
 				LOGGER.info(JSON.stringify(logData));
-			}, JSON.stringify(message));
+			}, message);
 		}
 
 		public function removeStream(userID:String, streamName:String):void {
@@ -212,7 +233,8 @@ package org.bigbluebutton.modules.users.services
 			var logData:Object = UsersUtil.initLogData();
 			logData.tags = ["webcam"];
 			logData.streamId = streamName;
-			logData.message = "User stopped sharing webcam";
+			logData.userId = userID;
+			logData.logCode = "sending_cam_broadcast_stop";
 			LOGGER.info(JSON.stringify(logData));
 
 
@@ -221,9 +243,11 @@ package org.bigbluebutton.modules.users.services
 			}, function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured unsharing webcam.";
+				logData.streamId = streamName;
+				logData.userId = userID;
+				logData.logCode = "error_sending_cam_broadcast_stop";
 				LOGGER.info(JSON.stringify(logData));
-			}, JSON.stringify(message));
+			}, message);
 		}
     
     public function logoutEndMeeting(userID:String):void {
@@ -240,10 +264,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured logout and end meeting.";
+								logData.logCode = "error_sending_logout_end_meeting";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );
     }
 
@@ -261,10 +285,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured getting recording status.";
+								logData.logCode = "error_sending_get_recording_status";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       ); //_netConnection.call
 	}
 
@@ -277,9 +301,9 @@ package org.bigbluebutton.modules.users.services
 			}, function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured querying breakout rooms.";
+				logData.logCode = "error_sending_get_breakout_rooms";
 				LOGGER.info(JSON.stringify(logData));
-			}, JSON.stringify(message));
+			}, message);
 		}
 
     public function activityResponse():void {
@@ -296,12 +320,33 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured activity response.";
+								logData.logCode = "error_sending_meeting_activity_response";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       ); //_netConnection.call
     }
+		
+		public function userActivitySignResponse():void {
+			var message:Object = {
+				header: {name: "UserActivitySignCmdMsg", meetingId: UsersUtil.getInternalMeetingID(), 
+					userId: UsersUtil.getMyUserID()},
+				body: {userId: UsersUtil.getMyUserID()}
+			};
+			
+			var _nc:ConnectionManager = BBB.initConnectionManager();
+			_nc.sendMessage2x(
+				function(result:String):void { // On successful result
+				},
+				function(status:String):void { // status - On error occurred
+					var logData:Object = UsersUtil.initLogData();
+					logData.tags = ["apps"];
+					logData.message = "Error occured activity response.";
+					LOGGER.info(JSON.stringify(logData));
+				},
+				message
+			); //_netConnection.call
+		}
 
     public function changeRecordingStatus(userID:String, recording:Boolean):void {
       var message:Object = {
@@ -317,12 +362,33 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured change recording status.";
+								logData.logCode = "error_sending_change_recording_status";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       ); //_netConnection.call
     }
+
+	public function recordAndClearPreviousMarkers(userID:String, recording:Boolean):void {
+		var message:Object = {
+			header: {name: "RecordAndClearPreviousMarkersCmdMsg", meetingId: UsersUtil.getInternalMeetingID(), 
+				userId: UsersUtil.getMyUserID()},
+			body: {recording: recording, setBy: userID}
+		};
+
+		var _nc:ConnectionManager = BBB.initConnectionManager();
+		_nc.sendMessage2x(
+			function(result:String):void { // On successful result
+			},
+			function(status:String):void { // status - On error occurred
+				var logData:Object = UsersUtil.initLogData();
+				logData.tags = ["apps"];
+				logData.logCode = "error_sending_change_recording_status";
+				LOGGER.info(JSON.stringify(logData));
+			},
+			message
+		); //_netConnection.call
+	}
 
     public function muteAllUsers(mute:Boolean):void {
       var message:Object = {
@@ -338,10 +404,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured muting all users.";
+								logData.logCode = "error_sending_mute_all_users";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       ); 
     }
     
@@ -359,10 +425,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured muting all users except presenter.";
+								logData.logCode = "error_sending_mute_all_except_presenter";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       ); 
     }
     
@@ -380,10 +446,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occurred muting user.";
+								logData.logCode = "error_sending_mute_user";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );
      }
 
@@ -401,10 +467,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occurred ejecting user from voice.";
+								logData.logCode = "error_sending_eject_user_from_voice";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );    
     }
 
@@ -419,16 +485,78 @@ package org.bigbluebutton.modules.users.services
       }, function(status:String):void { // status - On error occurred
         var logData:Object = UsersUtil.initLogData();
         logData.tags = ["apps"];
-        logData.message = "Error occurred kicking a user - ejecting from meeting.";
+				logData.logCode = "error_sending_eject_user_from_meeting";
         LOGGER.info(JSON.stringify(logData));
-      }, JSON.stringify(message));
+      }, message);
+    }
+	
+	public function lookUpUser(externalUserId:String):void {
+		var message:Object = {
+			header: {name: "LookUpUserReqMsg", meetingId: UsersUtil.getInternalMeetingID(), userId: UsersUtil.getMyUserID()},
+			body: {externalUserId: externalUserId}
+		};
+		
+		var _nc:ConnectionManager = BBB.initConnectionManager();
+		_nc.sendMessage2x(function(result:String):void { // On successful result
+		}, function(status:String):void { // status - On error occurred
+			var logData:Object = UsersUtil.initLogData();
+			logData.tags = ["apps"];
+			logData.logCode = "error_sending_look_up_user";
+			LOGGER.info(JSON.stringify(logData));
+		}, message);
+	}
+
+    public function addUserToPresenterGroup(userID:String):void {
+      var message:Object = {
+        header: {name: "AddUserToPresenterGroupCmdMsg", meetingId: UsersUtil.getInternalMeetingID(), userId: UsersUtil.getMyUserID()},
+        body: {userId: userID, requesterId: UsersUtil.getMyUserID()}
+      };
+
+      var _nc:ConnectionManager = BBB.initConnectionManager();
+      _nc.sendMessage2x(function(result:String):void { // On successful result
+      }, function(status:String):void { // status - On error occurred
+        var logData:Object = UsersUtil.initLogData();
+        logData.tags = ["apps"];
+        logData.message = "Error occurred adding a user to presenter group.";
+        LOGGER.info(JSON.stringify(logData));
+      }, message);
     }
 
-      public function getRoomMuteState():void{
+    public function removeUserFromPresenterGroup(userID:String):void {
+      var message:Object = {
+        header: {name: "RemoveUserFromPresenterGroupCmdMsg", meetingId: UsersUtil.getInternalMeetingID(), userId: UsersUtil.getMyUserID()},
+        body: {userId: userID, requesterId: UsersUtil.getMyUserID()}
+      };
+
+      var _nc:ConnectionManager = BBB.initConnectionManager();
+      _nc.sendMessage2x(function(result:String):void { // On successful result
+      }, function(status:String):void { // status - On error occurred
+        var logData:Object = UsersUtil.initLogData();
+        logData.tags = ["apps"];
+        logData.message = "Error occurred removing a user from presenter group.";
+        LOGGER.info(JSON.stringify(logData));
+      }, message);
+    }
+
+    public function handleRequestPresenterGroupEvent():void {
+      var message:Object = {
+        header: {name: "GetPresenterGroupReqMsg", meetingId: UsersUtil.getInternalMeetingID(), userId: UsersUtil.getMyUserID()},
+        body: {requesterId: UsersUtil.getMyUserID()}
+      };
+
+      var _nc:ConnectionManager = BBB.initConnectionManager();
+      _nc.sendMessage2x(
+        function(result:String):void { },
+        function(status:String):void { LOGGER.error(status); },
+          message
+      );
+    }
+
+    public function getRoomMuteState():void{
       var message:Object = {
         header: {name: "IsMeetingMutedReqMsg", meetingId: UsersUtil.getInternalMeetingID(), 
           userId: UsersUtil.getMyUserID()},
-        body: {requesterId: UsersUtil.getMyUserID()}
+        body: {}
       };
          
       var _nc:ConnectionManager = BBB.initConnectionManager();
@@ -438,10 +566,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occuredget room mute state.";
+								logData.logCode = "error_sending_meeting_mute_state";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       ); 
     }    
 
@@ -462,10 +590,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
           var logData:Object = UsersUtil.initLogData();
           logData.tags = ["apps"];
-          logData.message = "Error occured setting user lock status.";
+					logData.logCode = "error_sending_lock_users_in_meeting";
           LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );
     }
     
@@ -486,10 +614,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
           var logData:Object = UsersUtil.initLogData();
           logData.tags = ["apps"];
-          logData.message = "Error occured setting user lock status.";
+					logData.logCode = "error_sending_lock_user_in_meeting";
           LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );
     }
     
@@ -508,10 +636,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
           var logData:Object = UsersUtil.initLogData();
           logData.tags = ["apps"];
-          logData.message = "Error occured getting lock state.";
+					logData.logCode = "error_sending_get_lock_settings";
           LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );   
     }
     
@@ -524,7 +652,9 @@ package org.bigbluebutton.modules.users.services
           disableMic: newLockSettings.disableMic, 
           disablePrivChat: newLockSettings.disablePrivateChat,
           disablePubChat: newLockSettings.disablePublicChat, 
-          lockedLayout: newLockSettings.lockedLayout, 
+          disableNote: newLockSettings.disableNote,
+          lockedLayout: newLockSettings.lockedLayout,
+          hideUserList: newLockSettings.hideUserList,
           lockOnJoin: newLockSettings.lockOnJoin, 
           lockOnJoinConfigurable: newLockSettings.lockOnJoinConfigurable, 
           setBy: UsersUtil.getMyUserID()}
@@ -538,10 +668,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured saving lock settings.";
+								logData.logCode = "error_sending_save_lock_settings";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );      
     }
 	
@@ -560,10 +690,10 @@ package org.bigbluebutton.modules.users.services
 			function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured setting webcamsOnlyForModerator.";
+				logData.logCode = "error_sending_webcams_only_for_moderators";
 				LOGGER.info(JSON.stringify(logData));
 			},
-			JSON.stringify(message)
+			message
 		);
 	}
 
@@ -582,10 +712,10 @@ package org.bigbluebutton.modules.users.services
         function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured change role.";
+								logData.logCode = "error_sending_change_user_role";
                 LOGGER.info(JSON.stringify(logData));
         },
-        JSON.stringify(message)
+        message
       );
     }
 	
@@ -604,16 +734,15 @@ package org.bigbluebutton.modules.users.services
 			function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured query webcamsOnlyForModerator.";
+				logData.logCode = "error_sending_get_webcams_only_for_moderator";
 				LOGGER.info(JSON.stringify(logData));
 			},
-			JSON.stringify(message)
+			message
 		);
 	}
 
     public function queryForGuestPolicy():void {
-      LOGGER.debug("queryForGuestPolicy");
-      
+
       var message:Object = {
         header: {name: "GetGuestPolicyReqMsg", meetingId: UsersUtil.getInternalMeetingID(), 
           userId: UsersUtil.getMyUserID()},
@@ -628,15 +757,15 @@ package org.bigbluebutton.modules.users.services
          function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured query guest policy.";
+								logData.logCode = "error_sending_get_guest_policy";
                 LOGGER.info(JSON.stringify(logData));
          },
-         JSON.stringify(message)
+         message
        );
     }
 
     public function setGuestPolicy(policy:String):void {
-      LOGGER.debug("setGuestPolicy - new policy:[" + policy + "]");
+
       var message:Object = {
         header: {name: "SetGuestPolicyCmdMsg", meetingId: UsersUtil.getInternalMeetingID(), 
           userId: UsersUtil.getMyUserID()},
@@ -651,15 +780,14 @@ package org.bigbluebutton.modules.users.services
          function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured set guest policy.";
+								logData.logCode = "error_sending_set_guest_policy";
                 LOGGER.info(JSON.stringify(logData));
          },
-         JSON.stringify(message)
+         message
        );
     }
 
     public function responseToGuest(userId:String, response:Boolean):void {
-      LOGGER.debug("responseToGuest - userId:[" + userId + "] response:[" + response + "]");
 
 	  var _guests: Array = new Array();
 	  _guests.push({guest: userId, approved: response});
@@ -678,20 +806,27 @@ package org.bigbluebutton.modules.users.services
          function(status:String):void { // status - On error occurred
                 var logData:Object = UsersUtil.initLogData();
                 logData.tags = ["apps"];
-                logData.message = "Error occured response guest.";
+								logData.logCode = "error_sending_guest_waiting_approved";
                 LOGGER.info(JSON.stringify(logData));
          },
-		 JSON.stringify(message)
+		 message
        );
-    }
+		}
 
-    public function responseToAllGuests(response:Boolean):void {
-		var _guestsWaiting: Array = LiveMeeting.inst().guestsWaiting.getGuests();
+
+    private function removeGuestsWaiting(userIds: Array): void {
+      for (var i:int = 0; i < userIds.length; i++) {
+        LiveMeeting.inst().guestsWaiting.remove(userIds[i]);
+      }
+    }
+    
+    public function approveGuestAccess(userIds: Array, approve:Boolean):void {
 		var _guests: Array = new Array();
-		
-		for (var i:int = 0; i < _guests.length; i++) {
-			var _guest: GuestWaiting = _guestsWaiting[i] as GuestWaiting;
-			_guests.push({guest: _guest.intId, approved: response});
+		var status: String = GuestWaiting.DENY;
+    if (approve) status = GuestWaiting.ALLOW;
+    
+		for (var i:int = 0; i < userIds.length; i++) {
+			_guests.push({guest: userIds[i], status: status});
 		}
 		
 		var message:Object = {
@@ -708,10 +843,10 @@ package org.bigbluebutton.modules.users.services
 			function(status:String):void { // status - On error occurred
 				var logData:Object = UsersUtil.initLogData();
 				logData.tags = ["apps"];
-				logData.message = "Error occured response guest.";
+				logData.logCode = "error_sending_guest_waiting_approved";
 				LOGGER.info(JSON.stringify(logData));
 			},
-			JSON.stringify(message)
+			message
 		);
     }
   }
