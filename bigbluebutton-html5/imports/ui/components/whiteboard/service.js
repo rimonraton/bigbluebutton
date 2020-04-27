@@ -1,9 +1,9 @@
 import Users from '/imports/api/users';
 import Auth from '/imports/ui/services/auth';
 import WhiteboardMultiUser from '/imports/api/whiteboard-multi-user/';
-import { AnnotationsStreamer } from '/imports/api/annotations';
 import addAnnotationQuery from '/imports/api/annotations/addAnnotation';
 import logger from '/imports/startup/client/logger';
+import { makeCall } from '/imports/ui/services/api';
 import { isEqual } from 'lodash';
 
 const Annotations = new Mongo.Collection(null);
@@ -11,6 +11,9 @@ const ANNOTATION_CONFIG = Meteor.settings.public.whiteboard.annotations;
 const DRAW_START = ANNOTATION_CONFIG.status.start;
 const DRAW_END = ANNOTATION_CONFIG.status.end;
 const discardedList = [];
+
+
+let annotationsStreamListener = null;
 
 export function addAnnotationToDiscardedList(annotation) {
   if (!discardedList.includes(annotation)) discardedList.push(annotation);
@@ -42,8 +45,8 @@ function handleAddedAnnotation({
       Annotations.update(fakeAnnotation._id, {
         $set: {
           position: annotation.position,
-          'annotationInfo.color': isEqual(fakePoints, lastPoints) || annotation.status === DRAW_END ?
-            annotation.annotationInfo.color : fakeAnnotation.annotationInfo.color,
+          'annotationInfo.color': isEqual(fakePoints, lastPoints) || annotation.status === DRAW_END
+            ? annotation.annotationInfo.color : fakeAnnotation.annotationInfo.color,
         },
         $inc: { version: 1 }, // TODO: Remove all this version stuff
       });
@@ -53,7 +56,10 @@ function handleAddedAnnotation({
 
   Annotations.upsert(query.selector, query.modifier, (err) => {
     if (err) {
-      logger.error(err);
+      logger.error({
+        logCode: 'whiteboard_annotation_upsert_error',
+        extraInfo: { error: err },
+      }, 'Error on adding an annotation');
       return;
     }
 
@@ -92,14 +98,37 @@ function handleRemovedAnnotation({
   Annotations.remove(query);
 }
 
-AnnotationsStreamer.on('removed', handleRemovedAnnotation);
+export function initAnnotationsStreamListener() {
+  /**
+   * We create a promise to add the handlers after a ddp subscription stop.
+   * The problem was caused because we add handlers to stream before the onStop event happens,
+   * which set the handlers to undefined.
+   */
+  annotationsStreamListener = new Meteor.Streamer(`annotations-${Auth.meetingID}`, { retransmit: false });
 
-AnnotationsStreamer.on('added', ({ annotations }) => {
-  // Call handleAddedAnnotation when this annotation is not in discardedList
-  annotations
-    .filter(({ annotation }) => !discardedList.includes(annotation.id))
-    .forEach(annotation => handleAddedAnnotation(annotation));
-});
+  const startStreamHandlersPromise = new Promise((resolve) => {
+    const checkStreamHandlersInterval = setInterval(() => {
+      const streamHandlersSize = Object.values(Meteor.StreamerCentral.instances[`annotations-${Auth.meetingID}`].handlers)
+        .filter(el => el != undefined)
+        .length;
+
+      if (!streamHandlersSize) {
+        resolve(clearInterval(checkStreamHandlersInterval));
+      }
+    }, 250);
+  });
+
+  startStreamHandlersPromise.then(() => {
+    annotationsStreamListener.on('removed', handleRemovedAnnotation);
+
+    annotationsStreamListener.on('added', ({ annotations }) => {
+      // Call handleAddedAnnotation when this annotation is not in discardedList
+      annotations
+        .filter(({ annotation }) => !discardedList.includes(annotation.id))
+        .forEach(annotation => handleAddedAnnotation(annotation));
+    });
+  });
+}
 
 function increaseBrightness(realHex, percent) {
   let hex = parseInt(realHex, 10).toString(16).padStart(6, 0);
@@ -116,13 +145,13 @@ function increaseBrightness(realHex, percent) {
   const b = parseInt(hex.substr(4, 2), 16);
 
   /* eslint-disable no-bitwise, no-mixed-operators */
-  return parseInt(((0 | (1 << 8) + r + ((256 - r) * percent) / 100).toString(16)).substr(1) +
-     ((0 | (1 << 8) + g + ((256 - g) * percent) / 100).toString(16)).substr(1) +
-     ((0 | (1 << 8) + b + ((256 - b) * percent) / 100).toString(16)).substr(1), 16);
+  return parseInt(((0 | (1 << 8) + r + ((256 - r) * percent) / 100).toString(16)).substr(1)
+     + ((0 | (1 << 8) + g + ((256 - g) * percent) / 100).toString(16)).substr(1)
+     + ((0 | (1 << 8) + b + ((256 - b) * percent) / 100).toString(16)).substr(1), 16);
   /* eslint-enable no-bitwise, no-mixed-operators */
 }
 
-let annotationsQueue = [];
+const annotationsQueue = [];
 // How many packets we need to have to use annotationsBufferTimeMax
 const annotationsMaxDelayQueueSize = 60;
 // Minimum bufferTime
@@ -131,7 +160,7 @@ const annotationsBufferTimeMin = 30;
 const annotationsBufferTimeMax = 200;
 let annotationsSenderIsRunning = false;
 
-const proccessAnnotationsQueue = () => {
+const proccessAnnotationsQueue = async () => {
   annotationsSenderIsRunning = true;
   const queueSize = annotationsQueue.length;
 
@@ -140,15 +169,13 @@ const proccessAnnotationsQueue = () => {
     return;
   }
 
+  const annotations = annotationsQueue.splice(0, queueSize);
+
   // console.log('annotationQueue.length', annotationsQueue, annotationsQueue.length);
-  AnnotationsStreamer.emit('publish', {
-    credentials: Auth.credentials,
-    payload: annotationsQueue.filter(({ id }) => !discardedList.includes(id)),
-  });
-  annotationsQueue = [];
+  await makeCall('sendBulkAnnotations', annotations.filter(({ id }) => !discardedList.includes(id)));
+
   // ask tiago
-  const delayPerc =
-    Math.min(annotationsMaxDelayQueueSize, queueSize) / annotationsMaxDelayQueueSize;
+  const delayPerc = Math.min(annotationsMaxDelayQueueSize, queueSize) / annotationsMaxDelayQueueSize;
   const delayDelta = annotationsBufferTimeMax - annotationsBufferTimeMin;
   const delayTime = annotationsBufferTimeMin + (delayDelta * delayPerc);
   setTimeout(proccessAnnotationsQueue, delayTime);
@@ -185,7 +212,7 @@ WhiteboardMultiUser.find({ meetingId: Auth.meetingID }).observeChanges({
   changed: clearFakeAnnotations,
 });
 
-Users.find({ userId: Auth.userID }).observeChanges({
+Users.find({ userId: Auth.userID }, { fields: { presenter: 1 } }).observeChanges({
   changed(id, { presenter }) {
     if (presenter === false) clearFakeAnnotations();
   },

@@ -4,11 +4,11 @@ import PropTypes from 'prop-types';
 import { defineMessages } from 'react-intl';
 import cx from 'classnames';
 import { styles } from '/imports/ui/components/user-list/user-list-content/styles';
-import ChatListItem from './../../chat-list-item/component';
+import { findDOMNode } from 'react-dom';
+import ChatListItemContainer from '../../chat-list-item/container';
 
 const propTypes = {
-  openChats: PropTypes.arrayOf(String).isRequired,
-  openChat: PropTypes.string,
+  activeChats: PropTypes.arrayOf(String).isRequired,
   compact: PropTypes.bool,
   intl: PropTypes.shape({
     formatMessage: PropTypes.func.isRequired,
@@ -19,7 +19,6 @@ const propTypes = {
 
 const defaultProps = {
   compact: false,
-  openChat: '',
 };
 
 const listTransition = {
@@ -43,50 +42,44 @@ class UserMessages extends PureComponent {
     super();
 
     this.state = {
-      index: -1,
+      selectedChat: null,
     };
 
-    this.openChatRefs = [];
-    this.selectedIndex = -1;
+    this.activeChatRefs = [];
 
-    this.focusOpenChatItem = this.focusOpenChatItem.bind(this);
     this.changeState = this.changeState.bind(this);
+    this.rove = this.rove.bind(this);
   }
 
   componentDidMount() {
-    if (!this.props.compact) {
+    const { compact } = this.props;
+    if (!compact) {
       this._msgsList.addEventListener(
         'keydown',
-        event => this.props.roving(
-          event,
-          this.props.openChats.length,
-          this.changeState,
-        ),
+        this.rove,
       );
     }
   }
 
   componentDidUpdate(prevProps, prevState) {
-    if (this.state.index === -1) {
-      return;
-    }
+    const { selectedChat } = this.state;
 
-    if (this.state.index !== prevState.index) {
-      this.focusOpenChatItem(this.state.index);
+    if (selectedChat && selectedChat !== prevState.selectedChat) {
+      const { firstChild } = selectedChat;
+      if (firstChild) firstChild.focus();
     }
   }
 
-  getOpenChats() {
+  getActiveChats() {
     const {
-      openChats,
-      openChat,
+      activeChats,
       compact,
       isPublicChat,
     } = this.props;
 
     let index = -1;
 
-    return openChats.map(chat => (
+    return activeChats.map(chat => (
       <CSSTransition
         classNames={listTransition}
         appear
@@ -95,13 +88,12 @@ class UserMessages extends PureComponent {
         timeout={0}
         component="div"
         className={cx(styles.chatsList)}
-        key={chat.id}
+        key={chat.userId}
       >
-        <div ref={(node) => { this.openChatRefs[index += 1] = node; }}>
-          <ChatListItem
+        <div ref={(node) => { this.activeChatRefs[index += 1] = node; }}>
+          <ChatListItemContainer
             isPublicChat={isPublicChat}
             compact={compact}
-            openChat={openChat}
             chat={chat}
             tabIndex={-1}
           />
@@ -110,16 +102,15 @@ class UserMessages extends PureComponent {
     ));
   }
 
-  changeState(newIndex) {
-    this.setState({ index: newIndex });
+  changeState(ref) {
+    this.setState({ selectedChat: ref });
   }
 
-  focusOpenChatItem(index) {
-    if (!this.openChatRefs[index]) {
-      return;
-    }
-
-    this.openChatRefs[index].firstChild.focus();
+  rove(event) {
+    const { roving } = this.props;
+    const { selectedChat } = this.state;
+    const msgItemsRef = findDOMNode(this._msgItems);
+    roving(event, this.changeState, msgItemsRef, selectedChat);
   }
 
   render() {
@@ -130,12 +121,17 @@ class UserMessages extends PureComponent {
 
     return (
       <div className={styles.messages}>
-        {
-          !compact ?
-            <h2 className={styles.smallTitle}>
-              {intl.formatMessage(intlMessages.messagesTitle)}
-            </h2> : <hr className={styles.separator} />
-        }
+        <div className={styles.container}>
+          {
+            !compact ? (
+              <h2 className={styles.smallTitle}>
+                {intl.formatMessage(intlMessages.messagesTitle)}
+              </h2>
+            ) : (
+              <hr className={styles.separator} />
+            )
+          }
+        </div>
         <div
           role="tabpanel"
           tabIndex={0}
@@ -143,8 +139,8 @@ class UserMessages extends PureComponent {
           ref={(ref) => { this._msgsList = ref; }}
         >
           <div className={styles.list}>
-            <TransitionGroup ref={(ref) => { this._msgItems = ref; }} >
-              { this.getOpenChats() }
+            <TransitionGroup ref={(ref) => { this._msgItems = ref; }}>
+              {this.getActiveChats()}
             </TransitionGroup>
           </div>
         </div>

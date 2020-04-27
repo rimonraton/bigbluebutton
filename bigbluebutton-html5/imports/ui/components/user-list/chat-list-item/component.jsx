@@ -26,22 +26,22 @@ const intlMessages = defineMessages({
 
 const propTypes = {
   chat: PropTypes.shape({
-    id: PropTypes.string.isRequired,
+    userId: PropTypes.string.isRequired,
     name: PropTypes.string.isRequired,
     unreadCounter: PropTypes.number.isRequired,
   }).isRequired,
-  openChat: PropTypes.string,
+  activeChatId: PropTypes.string.isRequired,
   compact: PropTypes.bool.isRequired,
   intl: PropTypes.shape({
     formatMessage: PropTypes.func.isRequired,
   }).isRequired,
   tabIndex: PropTypes.number.isRequired,
   isPublicChat: PropTypes.func.isRequired,
+  chatPanelOpen: PropTypes.bool.isRequired,
   shortcuts: PropTypes.string,
 };
 
 const defaultProps = {
-  openChat: '',
   shortcuts: '',
 };
 
@@ -51,21 +51,26 @@ const handleClickToggleChat = (id) => {
     Session.get('openPanel') === 'chat' && Session.get('idChatOpen') === id
       ? 'userlist' : 'chat',
   );
-  Session.set('idChatOpen', id);
+  if (Session.equals('openPanel', 'chat')) {
+    Session.set('idChatOpen', id);
+  } else {
+    Session.set('idChatOpen', '');
+  }
 };
 
 const ChatListItem = (props) => {
   const {
     chat,
-    openChat,
+    activeChatId,
     compact,
     intl,
     tabIndex,
     isPublicChat,
     shortcuts: TOGGLE_CHAT_PUB_AK,
+    chatPanelOpen,
   } = props;
 
-  const isCurrentChat = chat.id === openChat;
+  const isCurrentChat = chat.userId === activeChatId && chatPanelOpen;
   const linkClasses = {};
   linkClasses[styles.active] = isCurrentChat;
 
@@ -77,7 +82,7 @@ const ChatListItem = (props) => {
       aria-expanded={isCurrentChat}
       tabIndex={tabIndex}
       accessKey={isPublicChat(chat) ? TOGGLE_CHAT_PUB_AK : null}
-      onClick={() => handleClickToggleChat(chat.id)}
+      onClick={() => handleClickToggleChat(chat.userId)}
       id="chat-toggle-button"
       aria-label={isPublicChat(chat) ? intl.formatMessage(intlMessages.titlePublic) : chat.name}
     >

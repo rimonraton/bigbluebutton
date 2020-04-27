@@ -8,14 +8,15 @@ import Logger from './logger';
 // Fake meetingId used for messages that have no meetingId
 const NO_MEETING_ID = '_';
 
-const makeEnvelope = (channel, eventName, header, body) => {
+const makeEnvelope = (channel, eventName, header, body, routing) => {
   const envelope = {
     envelope: {
       name: eventName,
-      routing: {
+      routing: routing || {
         sender: 'bbb-apps-akka',
         // sender: 'html5-server', // TODO
       },
+      timestamp: Date.now(),
     },
     core: {
       header,
@@ -31,8 +32,8 @@ const makeDebugger = enabled => (message) => {
   Logger.debug(`REDIS: ${message}`);
 };
 
-class MettingMessageQueue {
-  constructor(eventEmitter, asyncMessages = [], debug = () => {}) {
+class MeetingMessageQueue {
+  constructor(eventEmitter, asyncMessages = [], debug = () => { }) {
     this.asyncMessages = asyncMessages;
     this.emitter = eventEmitter;
     this.queue = new PowerQueue();
@@ -69,7 +70,7 @@ class MettingMessageQueue {
     };
 
     const onError = (reason) => {
-      this.debug(`${eventName}: ${reason.stack ? reason.stack : reason}`);
+      Logger.error(`${eventName}: ${reason.stack ? reason.stack : reason}`);
       callNext();
     };
 
@@ -105,9 +106,20 @@ class RedisPubSub {
     this.config = config;
 
     this.didSendRequestEvent = false;
-    const redisHost = process.env.REDIS_HOST || Meteor.settings.private.redis.host;
-    this.pub = Redis.createClient(Meteor.settings.private.redis.port, redisHost);
-    this.sub = Redis.createClient(Meteor.settings.private.redis.port, redisHost);
+    const host = process.env.REDIS_HOST || Meteor.settings.private.redis.host;
+    const redisConf = Meteor.settings.private.redis;
+    const { password, port } = redisConf;
+
+    if (password) {
+      this.pub = Redis.createClient({ host, port, password });
+      this.sub = Redis.createClient({ host, port, password });
+      this.pub.auth(password);
+      this.sub.auth(password);
+    } else {
+      this.pub = Redis.createClient({ host, port });
+      this.sub = Redis.createClient({ host, port });
+    }
+
     this.emitter = new EventEmitter2();
     this.mettingsQueues = {};
 
@@ -169,7 +181,7 @@ class RedisPubSub {
     const queueId = meetingId || NO_MEETING_ID;
 
     if (!(queueId in this.mettingsQueues)) {
-      this.mettingsQueues[meetingId] = new MettingMessageQueue(this.emitter, async, this.debug);
+      this.mettingsQueues[meetingId] = new MeetingMessageQueue(this.emitter, async, this.debug);
     }
 
     this.mettingsQueues[meetingId].add({
@@ -227,7 +239,7 @@ class RedisPubSub {
       userId,
     };
 
-    const envelope = makeEnvelope(channel, eventName, header, payload);
+    const envelope = makeEnvelope(channel, eventName, header, payload, { meetingId, userId });
 
     return this.pub.publish(channel, envelope, RedisPubSub.handlePublishError);
   }

@@ -1,12 +1,10 @@
 import React, { Component } from 'react';
 import { Session } from 'meteor/session';
-import { log } from '/imports/ui/services/api';
+import logger from '/imports/startup/client/logger';
 import Auth from '/imports/ui/services/auth';
 import LoadingScreen from '/imports/ui/components/loading-screen/component';
 
 const STATUS_CONNECTING = 'connecting';
-const CHAT_CONFIG = Meteor.settings.public.chat;
-const PUBLIC_CHAT_ID = CHAT_CONFIG.public_id;
 
 class AuthenticatedHandler extends Component {
   static setError(codeError) {
@@ -43,7 +41,11 @@ class AuthenticatedHandler extends Component {
     AuthenticatedHandler.addReconnectObservable();
 
     const setReason = (reason) => {
-      log('error', reason);
+      logger.error({
+        logCode: 'authenticatedhandlercomponent_setreason',
+        extraInfo: { reason },
+      }, 'Encountered error while trying to authenticate');
+
       AuthenticatedHandler.setError(reason.error);
       callback();
     };
@@ -58,22 +60,19 @@ class AuthenticatedHandler extends Component {
 
   constructor(props) {
     super(props);
-    this.changeState = this.changeState.bind(this);
     this.state = {
       authenticated: false,
     };
   }
 
   componentDidMount() {
-    if (Session.get('codeError')) return this.changeState(true);
+    if (Session.get('codeError')) {
+      this.setState({ authenticated: true });
+    }
     AuthenticatedHandler.authenticatedRouteHandler((value, error) => {
       if (error) AuthenticatedHandler.setError(error);
-      this.changeState(true);
+      this.setState({ authenticated: true });
     });
-  }
-
-  changeState(state) {
-    this.setState({ authenticated: state });
   }
 
   render() {
@@ -84,10 +83,9 @@ class AuthenticatedHandler extends Component {
       authenticated,
     } = this.state;
 
-    Session.set('isChatOpen', false);
-    Session.set('idChatOpen', PUBLIC_CHAT_ID);
     Session.set('isMeetingEnded', false);
     Session.set('isPollOpen', false);
+    // TODO: breakoutRoomIsOpen doesn't seem used
     Session.set('breakoutRoomIsOpen', false);
 
     return authenticated

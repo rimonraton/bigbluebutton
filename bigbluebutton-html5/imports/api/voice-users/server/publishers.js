@@ -1,15 +1,15 @@
 import VoiceUsers from '/imports/api/voice-users';
 import { Meteor } from 'meteor/meteor';
-import { check } from 'meteor/check';
 import Logger from '/imports/startup/server/logger';
+import { extractCredentials } from '/imports/api/common/server/helpers';
 
-function voiceUser(credentials) {
-  const { meetingId, requesterUserId } = credentials;
+function voiceUser() {
+  if (!this.userId) {
+    return VoiceUsers.find({ meetingId: '' });
+  }
+  const { meetingId, requesterUserId } = extractCredentials(this.userId);
 
-  check(meetingId, String);
-  check(requesterUserId, String);
-
-  Logger.info(`Publishing Voice User for ${meetingId} ${requesterUserId}`);
+  Logger.debug(`Publishing Voice User for ${meetingId} ${requesterUserId}`);
 
   return VoiceUsers.find({ meetingId });
 }

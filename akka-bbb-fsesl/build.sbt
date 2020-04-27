@@ -1,12 +1,11 @@
 import org.bigbluebutton.build._
 
-import scalariform.formatter.preferences._
-import com.typesafe.sbt.SbtScalariform
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
-
+import NativePackagerHelper._
 import com.typesafe.sbt.SbtNativePackager.autoImport._
 
 enablePlugins(JavaServerAppPackaging)
+enablePlugins(UniversalPlugin)
+enablePlugins(DebianPlugin)
 
 version := "0.0.2"
 
@@ -49,12 +48,9 @@ testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-h", "target/sc
 Seq(Revolver.settings: _*)
 lazy val bbbFseslAkka = (project in file(".")).settings(name := "bbb-fsesl-akka", libraryDependencies ++= Dependencies.runtime).settings(compileSettings)
 
-scalariformAutoformat := false
-
-scalariformPreferences := scalariformPreferences.value
-  .setPreference(AlignSingleLineCaseStatements, true)
-  .setPreference(DoubleIndentConstructorArguments, true)
-  .setPreference(AlignParameters, true)
+// See https://github.com/scala-ide/scalariform
+// Config file is in ./.scalariform.conf
+scalariformAutoformat := true
 
 //-----------
 // Packaging
@@ -80,5 +76,7 @@ daemonUser in Linux := user
 
 // group which will execute the application
 daemonGroup in Linux := group
+
+javaOptions in Universal ++= Seq("-J-Xms130m", "-J-Xmx256m", "-Dconfig.file=conf/application.conf", "-Dlogback.configurationFile=conf/logback.xml")
 
 debianPackageDependencies in Debian ++= Seq("java8-runtime-headless", "bash")

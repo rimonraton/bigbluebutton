@@ -54,6 +54,8 @@ public class RecordingService {
     private String recordStatusDir;
     private String captionsDir;
     private String presentationBaseDir;
+    private String defaultServerUrl;
+    private String defaultTextTrackUrl;
 
     private void copyPresentationFile(File presFile, File dlownloadableFile) {
         try {
@@ -86,10 +88,28 @@ public class RecordingService {
     }
 
     public File getDownloadablePresentationFile(String meetingId, String presId, String presFilename) {
-    	log.info("Find downloadable presentation for meetingId={} presId={} filename={}", meetingId, presId, presFilename);
-
+        log.info("Find downloadable presentation for meetingId={} presId={} filename={}", meetingId, presId,
+                presFilename);
         File presDir = Util.getPresentationDir(presentationBaseDir, meetingId, presId);
-        return new File(presDir.getAbsolutePath() + File.separatorChar + presFilename);
+        // Build file to presFilename
+        // Get canonicalPath and make sure it starts with
+        // /var/bigbluebutton/<meetingid-pattern>
+        // If so return file, if not return null
+        File presFile = new File(presDir.getAbsolutePath() + File.separatorChar + presFilename);
+        try {
+            String presFileCanonical = presFile.getCanonicalPath();
+            log.debug("Requested presentation name file full path {}",presFileCanonical);
+            if (presFileCanonical.startsWith(presentationBaseDir)) {
+                return presFile;
+            }
+        } catch (IOException e) {
+            log.error("Exception getting canonical path for {}.\n{}", presFilename, e);
+            return null;
+        }
+
+        log.error("Cannot find file for {}.", presFilename);
+
+        return null;
     }
 
     public void kickOffRecordingChapterBreak(String meetingId, Long timestamp) {
@@ -126,6 +146,23 @@ public class RecordingService {
         }
     }
 
+    public void markAsEnded(String meetingId) {
+        String done = recordStatusDir + "/../ended/" + meetingId + ".done";
+
+        File doneFile = new File(done);
+        if (!doneFile.exists()) {
+            try {
+                doneFile.createNewFile();
+                if (!doneFile.exists())
+                    log.error("Failed to create " + done + " file.");
+            } catch (IOException e) {
+                log.error("Exception occured when trying to create {} file.", done);
+            }
+        } else {
+            log.error(done + " file already exists.");
+        }
+    }
+
     public List<RecordingMetadata> getRecordingsMetadata(List<String> recordIDs, List<String> states) {
         List<RecordingMetadata> recs = new ArrayList<>();
 
@@ -151,8 +188,12 @@ public class RecordingService {
         return recs;
     }
 
+    public Boolean validateTextTrackSingleUseToken(String recordId, String caption, String token) {
+        return recordingServiceHelper.validateTextTrackSingleUseToken(recordId, caption, token);
+    }
+
     public String getRecordingTextTracks(String recordId) {
-        return recordingServiceHelper.getRecordingTextTracks(recordId, captionsDir);
+        return recordingServiceHelper.getRecordingTextTracks(recordId, captionsDir, getCaptionFileUrlDirectory());
     }
 
     public String putRecordingTextTrack(UploadedTrack track) {
@@ -223,6 +264,16 @@ public class RecordingService {
         }
 
         return ids;
+    }
+
+    public boolean isRecordingExist(String recordId) {
+        List<String> publishList = getAllRecordingIds(publishedDir);
+        List<String> unpublishList = getAllRecordingIds(unpublishedDir);
+        if (publishList.contains(recordId) || unpublishList.contains(recordId)) {
+            return true;
+        }
+
+        return false;
     }
 
     public boolean existAnyRecording(List<String> idList) {
@@ -355,6 +406,14 @@ public class RecordingService {
 
     public void setPresentationBaseDir(String dir) {
         presentationBaseDir = dir;
+    }
+
+    public void setDefaultServerUrl(String url) {
+        defaultServerUrl = url;
+    }
+
+    public void setDefaultTextTrackUrl(String url) {
+        defaultTextTrackUrl = url;
     }
 
     public void setPublishedDir(String dir) {
@@ -645,7 +704,16 @@ public class RecordingService {
         return baseDir;
     }
 
-		public String getCaptionTrackInboxDir() {
-			return captionsDir + File.separatorChar + "inbox";
-		}
+    public String getCaptionTrackInboxDir() {
+        return captionsDir + File.separatorChar + "inbox";
+    }
+
+    public String getCaptionsDir() {
+      return captionsDir;
+    }
+
+    public String getCaptionFileUrlDirectory() {
+        return defaultTextTrackUrl + "/textTrack/";
+    }
+
 }

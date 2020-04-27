@@ -1,67 +1,86 @@
-import React, { PureComponent } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 import PropTypes from 'prop-types';
 import Auth from '/imports/ui/services/auth';
+import Meetings from '/imports/api/meetings';
+import ActionsBarService from '/imports/ui/components/actions-bar/service';
+import UserListService from '/imports/ui/components/user-list/service';
+import logger from '/imports/startup/client/logger';
+import { defineMessages, injectIntl, intlShape } from 'react-intl';
+import { notify } from '/imports/ui/services/notification';
 import UserOptions from './component';
-
 
 const propTypes = {
   users: PropTypes.arrayOf(Object).isRequired,
-  muteAllUsers: PropTypes.func.isRequired,
-  muteAllExceptPresenter: PropTypes.func.isRequired,
   setEmojiStatus: PropTypes.func.isRequired,
-  meeting: PropTypes.shape({}).isRequired,
+  intl: intlShape.isRequired,
 };
 
-export default class UserOptionsContainer extends PureComponent {
-  constructor(props) {
-    super(props);
+const intlMessages = defineMessages({
+  clearStatusMessage: {
+    id: 'app.userList.content.participants.options.clearedStatus',
+    description: 'Used in toast notification when emojis have been cleared',
+  },
+});
 
-    const { meeting } = this.props;
+const meetingMuteDisabledLog = () => logger.info({
+  logCode: 'useroptions_unmute_all',
+  extraInfo: { logType: 'moderator_action' },
+}, 'moderator disabled meeting mute');
 
-    this.state = {
-      meetingMuted: meeting.voiceProp.muteOnStart,
-    };
+const UserOptionsContainer = withTracker((props) => {
+  const {
+    users,
+    setEmojiStatus,
+    intl,
+  } = props;
 
-    this.muteMeeting = this.muteMeeting.bind(this);
-    this.muteAllUsersExceptPresenter = this.muteAllUsersExceptPresenter.bind(this);
-    this.handleClearStatus = this.handleClearStatus.bind(this);
-  }
-
-  muteMeeting() {
-    const { muteAllUsers } = this.props;
-    muteAllUsers(Auth.userID);
-  }
-
-  muteAllUsersExceptPresenter() {
-    const { muteAllExceptPresenter } = this.props;
-    muteAllExceptPresenter(Auth.userID);
-  }
-
-  handleClearStatus() {
-    const { users, setEmojiStatus } = this.props;
-
-    users.forEach((id) => {
-      setEmojiStatus(id, 'none');
-    });
-  }
-
-  render() {
-    const { currentUser } = this.props;
-    const currentUserIsModerator = currentUser.isModerator;
-
-    const { meetingMuted } = this.state;
-
-    return (
-      currentUserIsModerator
-        ? (
-          <UserOptions
-            toggleMuteAllUsers={this.muteMeeting}
-            toggleMuteAllUsersExceptPresenter={this.muteAllUsersExceptPresenter}
-            toggleStatus={this.handleClearStatus}
-            isMeetingMuted={meetingMuted}
-          />) : null
+  const toggleStatus = () => {
+    users.forEach(user => setEmojiStatus(user.userId, 'none'));
+    notify(
+      intl.formatMessage(intlMessages.clearStatusMessage), 'info', 'clear_status',
     );
-  }
-}
+  };
+
+  const isMeetingMuteOnStart = () => {
+    const { voiceProp } = Meetings.findOne({ meetingId: Auth.meetingID },
+      { fields: { 'voiceProp.muteOnStart': 1 } });
+    const { muteOnStart } = voiceProp;
+    return muteOnStart;
+  };
+
+  return {
+    toggleMuteAllUsers: () => {
+      UserListService.muteAllUsers(Auth.userID);
+      if (isMeetingMuteOnStart()) {
+        return meetingMuteDisabledLog();
+      }
+      return logger.info({
+        logCode: 'useroptions_mute_all',
+        extraInfo: { logType: 'moderator_action' },
+      }, 'moderator enabled meeting mute, all users muted');
+    },
+    toggleMuteAllUsersExceptPresenter: () => {
+      UserListService.muteAllExceptPresenter(Auth.userID);
+      if (isMeetingMuteOnStart()) {
+        return meetingMuteDisabledLog();
+      }
+      return logger.info({
+        logCode: 'useroptions_mute_all_except_presenter',
+        extraInfo: { logType: 'moderator_action' },
+      }, 'moderator enabled meeting mute, all users muted except presenter');
+    },
+    toggleStatus,
+    isMeetingMuted: isMeetingMuteOnStart(),
+    amIModerator: ActionsBarService.amIModerator(),
+    getUsersNotAssigned: ActionsBarService.getUsersNotAssigned,
+    hasBreakoutRoom: UserListService.hasBreakoutRoom(),
+    isBreakoutEnabled: ActionsBarService.isBreakoutEnabled(),
+    isBreakoutRecordable: ActionsBarService.isBreakoutRecordable(),
+    users: ActionsBarService.users(),
+    isMeteorConnected: Meteor.status().connected,
+  };
+})(UserOptions);
 
 UserOptionsContainer.propTypes = propTypes;
+
+export default injectIntl(UserOptionsContainer);

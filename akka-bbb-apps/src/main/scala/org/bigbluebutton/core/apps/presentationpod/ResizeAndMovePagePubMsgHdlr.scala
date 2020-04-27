@@ -1,11 +1,11 @@
 package org.bigbluebutton.core.apps.presentationpod
 
-import org.bigbluebutton.common2.domain.PageVO
 import org.bigbluebutton.common2.msgs._
 import org.bigbluebutton.core.bus.MessageBus
 import org.bigbluebutton.core.domain.MeetingState2x
 import org.bigbluebutton.core.running.LiveMeeting
 import org.bigbluebutton.core.apps.{ PermissionCheck, RightsManagementTrait }
+import org.bigbluebutton.core.models.PresentationPage
 
 trait ResizeAndMovePagePubMsgHdlr extends RightsManagementTrait {
   this: PresentationPodHdlrs =>
@@ -13,14 +13,16 @@ trait ResizeAndMovePagePubMsgHdlr extends RightsManagementTrait {
   def handle(msg: ResizeAndMovePagePubMsg, state: MeetingState2x,
              liveMeeting: LiveMeeting, bus: MessageBus): MeetingState2x = {
 
-    def broadcastEvent(msg: ResizeAndMovePagePubMsg, podId: String, page: PageVO): Unit = {
+    def broadcastEvent(msg: ResizeAndMovePagePubMsg, podId: String, page: PresentationPage): Unit = {
       val routing = Routing.addMsgToClientRouting(
         MessageTypes.BROADCAST_TO_MEETING,
-        liveMeeting.props.meetingProp.intId, msg.header.userId)
+        liveMeeting.props.meetingProp.intId, msg.header.userId
+      )
       val envelope = BbbCoreEnvelope(ResizeAndMovePageEvtMsg.NAME, routing)
       val header = BbbClientMsgHeader(
         ResizeAndMovePageEvtMsg.NAME,
-        liveMeeting.props.meetingProp.intId, msg.header.userId)
+        liveMeeting.props.meetingProp.intId, msg.header.userId
+      )
 
       val body = ResizeAndMovePageEvtMsgBody(podId, msg.body.presentationId, page.id,
         page.xOffset, page.yOffset, page.widthRatio, page.heightRatio)

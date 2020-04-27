@@ -248,21 +248,22 @@ case class OldPresenter(userId: String, changedPresenterOn: Long)
 case class UserLeftFlag(left: Boolean, leftOn: Long)
 
 case class UserState(
-  intId:            String,
-  extId:            String,
-  name:             String,
-  role:             String,
-  guest:            Boolean,
-  authed:           Boolean,
-  guestStatus:      String,
-  emoji:            String,
-  locked:           Boolean,
-  presenter:        Boolean,
-  avatar:           String,
-  roleChangedOn:    Long         = System.currentTimeMillis(),
-  lastActivityTime: Long         = TimeUtil.timeNowInMs(),
-  clientType:       String,
-  userLeftFlag:     UserLeftFlag)
+    intId:            String,
+    extId:            String,
+    name:             String,
+    role:             String,
+    guest:            Boolean,
+    authed:           Boolean,
+    guestStatus:      String,
+    emoji:            String,
+    locked:           Boolean,
+    presenter:        Boolean,
+    avatar:           String,
+    roleChangedOn:    Long         = System.currentTimeMillis(),
+    lastActivityTime: Long         = TimeUtil.timeNowInMs(),
+    clientType:       String,
+    userLeftFlag:     UserLeftFlag
+)
 
 case class UserIdAndName(id: String, name: String)
 
@@ -280,6 +281,11 @@ object Roles {
   val AUTHENTICATED_ROLE = "AUTHENTICATED"
 }
 
+object ClientType {
+  val FLASH = "FLASH"
+  val HTML5 = "HTML5"
+}
+
 object SystemUser {
   val ID = "SYSTEM"
 }
@@ -291,4 +297,5 @@ object EjectReasonCode {
   val SYSTEM_EJECT_USER = "system_requested_eject_reason"
   val VALIDATE_TOKEN = "validate_token_failed_eject_reason"
   val USER_INACTIVITY = "user_inactivity_eject_reason"
+  val EJECTED_USER_REJOINING = "ejected_user_rejoining_reason"
 }

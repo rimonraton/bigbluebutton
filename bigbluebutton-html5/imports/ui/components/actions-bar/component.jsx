@@ -1,76 +1,84 @@
-import React from 'react';
+import React, { PureComponent } from 'react';
 import cx from 'classnames';
 import { styles } from './styles.scss';
 import DesktopShare from './desktop-share/component';
 import ActionsDropdown from './actions-dropdown/component';
+import QuickPollDropdown from './quick-poll-dropdown/component';
 import AudioControlsContainer from '../audio/audio-controls/container';
-import JoinVideoOptionsContainer from '../video-provider/video-menu/container';
+import JoinVideoOptionsContainer from '../video-provider/video-button/container';
+import CaptionsButtonContainer from '/imports/ui/components/actions-bar/captions/container';
+import PresentationOptionsContainer from './presentation-options/component';
 
-class ActionsBar extends React.PureComponent {
+class ActionsBar extends PureComponent {
   render() {
     const {
-      isUserPresenter,
+      amIPresenter,
       handleExitVideo,
       handleJoinVideo,
       handleShareScreen,
       handleUnshareScreen,
       isVideoBroadcasting,
-      isUserModerator,
-      recordSettingsList,
-      toggleRecording,
+      amIModerator,
       screenSharingCheck,
       enableVideo,
-      createBreakoutRoom,
-      meetingIsBreakout,
-      hasBreakoutRoom,
-      meetingName,
-      users,
-      getUsersNotAssigned,
-      sendInvitation,
-      getBreakouts,
+      isLayoutSwapped,
+      toggleSwapLayout,
       handleTakePresenter,
+      intl,
+      currentSlidHasContent,
+      parseCurrentSlideContent,
+      isSharingVideo,
+      screenShareEndAlert,
+      stopExternalVideoShare,
+      screenshareDataSavingSetting,
+      isCaptionsAvailable,
+      isMeteorConnected,
+      isPollingEnabled,
+      isThereCurrentPresentation,
+      allowExternalVideo,
     } = this.props;
 
-    const {
-      allowStartStopRecording,
-      recording: isRecording,
-      record,
-    } = recordSettingsList;
-
     const actionBarClasses = {};
-    const { enableExternalVideo } = Meteor.settings.public.app;
 
-    actionBarClasses[styles.centerWithActions] = isUserPresenter;
+    actionBarClasses[styles.centerWithActions] = amIPresenter;
     actionBarClasses[styles.center] = true;
+    actionBarClasses[styles.mobileLayoutSwapped] = isLayoutSwapped && amIPresenter;
 
     return (
       <div className={styles.actionsbar}>
         <div className={styles.left}>
           <ActionsDropdown {...{
-            isUserPresenter,
-            isUserModerator,
-            allowStartStopRecording,
-            allowExternalVideo: enableExternalVideo,
-            isRecording,
-            record,
-            toggleRecording,
-            createBreakoutRoom,
-            meetingIsBreakout,
-            hasBreakoutRoom,
-            meetingName,
-            users,
-            getUsersNotAssigned,
-            sendInvitation,
-            getBreakouts,
+            amIPresenter,
+            amIModerator,
+            isPollingEnabled,
+            allowExternalVideo,
             handleTakePresenter,
+            intl,
+            isSharingVideo,
+            stopExternalVideoShare,
+            isMeteorConnected,
           }}
           />
-        </div>
-        <div
-          className={
-            isUserPresenter ? cx(styles.centerWithActions, actionBarClasses) : styles.center
+          {isPollingEnabled
+            ? (
+              <QuickPollDropdown
+                {...{
+                  currentSlidHasContent,
+                  intl,
+                  amIPresenter,
+                  parseCurrentSlideContent,
+                }}
+              />
+            ) : null
           }
-        >
+          {isCaptionsAvailable
+            ? (
+              <CaptionsButtonContainer {...{ intl }} />
+            )
+            : null
+          }
+        </div>
+        <div className={cx(actionBarClasses)}>
           <AudioControlsContainer />
           {enableVideo
             ? (
@@ -84,10 +92,24 @@ class ActionsBar extends React.PureComponent {
             handleShareScreen,
             handleUnshareScreen,
             isVideoBroadcasting,
-            isUserPresenter,
+            amIPresenter,
             screenSharingCheck,
+            screenShareEndAlert,
+            isMeteorConnected,
+            screenshareDataSavingSetting,
           }}
           />
+        </div>
+        <div className={styles.right}>
+          {isLayoutSwapped
+            ? (
+              <PresentationOptionsContainer
+                toggleSwapLayout={toggleSwapLayout}
+                isThereCurrentPresentation={isThereCurrentPresentation}
+              />
+            )
+            : null
+          }
         </div>
       </div>
     );

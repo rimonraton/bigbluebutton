@@ -1,9 +1,6 @@
 import Auth from '/imports/ui/services/auth';
-import Breakouts from '/imports/api/breakouts';
 import { makeCall } from '/imports/ui/services/api';
-import Meetings from '/imports/api/meetings';
-
-const getBreakouts = () => Breakouts.find({}, { sort: { sequence: 1 } }).fetch();
+import RecordMeetings from '/imports/api/meetings';
 
 const processOutsideToggleRecording = (e) => {
   switch (e.data) {
@@ -12,7 +9,7 @@ const processOutsideToggleRecording = (e) => {
       break;
     }
     case 'c_recording_status': {
-      const recordingState = Meetings.findOne({ meetingId: Auth.meetingID }).recordProp.recording;
+      const recordingState = (RecordMeetings.findOne({ meetingId: Auth.meetingID })).recording;
       const recordingMessage = recordingState ? 'recordingStarted' : 'recordingStopped';
       this.window.parent.postMessage({ response: recordingMessage }, '*');
       break;
@@ -23,7 +20,6 @@ const processOutsideToggleRecording = (e) => {
   }
 };
 
-
 const connectRecordingObserver = () => {
   // notify on load complete
   this.window.parent.postMessage({ response: 'readyToConnect' }, '*');
@@ -32,6 +28,4 @@ const connectRecordingObserver = () => {
 export default {
   connectRecordingObserver: () => connectRecordingObserver(),
   processOutsideToggleRecording: arg => processOutsideToggleRecording(arg),
-  getBreakouts,
 };
-

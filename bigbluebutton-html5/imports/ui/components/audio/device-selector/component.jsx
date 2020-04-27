@@ -3,6 +3,7 @@ import _ from 'lodash';
 import PropTypes from 'prop-types';
 import cx from 'classnames';
 import logger from '/imports/startup/client/logger';
+import browser from 'browser-detect';
 import { styles } from '../audio-modal/styles';
 
 const propTypes = {
@@ -32,13 +33,20 @@ class DeviceSelector extends Component {
   }
 
   componentDidMount() {
+    const { kind } = this.props;
     const handleEnumerateDevicesSuccess = (deviceInfos) => {
-      const devices = deviceInfos.filter(d => d.kind === this.props.kind);
-      logger.info(`Success on enumerateDevices() for ${this.props.kind}: ${JSON.stringify(devices)}`);
+      const devices = deviceInfos.filter(d => d.kind === kind);
+      logger.info({
+        logCode: 'audiodeviceselector_component_enumeratedevices_success',
+        extraInfo: {
+          deviceKind: kind,
+          devices,
+        },
+      }, 'Success on enumerateDevices() for audio');
       this.setState({
         devices,
         options: devices.map((d, i) => ({
-          label: d.label || `${this.props.kind} - ${i}`,
+          label: d.label || `${kind} - ${i}`,
           value: d.deviceId,
           key: _.uniqueId('device-option-'),
         })),
@@ -49,15 +57,21 @@ class DeviceSelector extends Component {
       .enumerateDevices()
       .then(handleEnumerateDevicesSuccess)
       .catch((err) => {
-        logger.error(`Error on enumerateDevices(): ${JSON.stringify(err)}`);
+        logger.error({
+          logCode: 'audiodeviceselector_component_enumeratedevices_error',
+          extraInfo: {
+            deviceKind: kind,
+          },
+        }, 'Error on enumerateDevices(): ');
       });
   }
 
   handleSelectChange(event) {
     const { value } = event.target;
     const { onChange } = this.props;
+    const { devices } = this.state;
     this.setState({ value }, () => {
-      const selectedDevice = this.state.devices.find(d => d.deviceId === value);
+      const selectedDevice = devices.find(d => d.deviceId === value);
       onChange(selectedDevice.deviceId, selectedDevice, event);
     });
   }
@@ -66,6 +80,7 @@ class DeviceSelector extends Component {
     const {
       kind, className, ...props
     } = this.props;
+
     const { options, value } = this.state;
 
     return (
@@ -77,16 +92,20 @@ class DeviceSelector extends Component {
         className={cx(styles.select, className)}
       >
         {
-          options.length ?
-            options.map(option => (
+          options.length
+            ? options.map(option => (
               <option
                 key={option.key}
                 value={option.value}
               >
                 {option.label}
               </option>
-            )) :
-            <option value="not-found">{`no ${kind} found`}</option>
+            ))
+            : (
+              (kind === 'audiooutput' && browser().name === 'safari')
+                ? <option value="not-found">Default</option>
+                : <option value="not-found">{`no ${kind} found`}</option>
+            )
         }
       </select>
     );

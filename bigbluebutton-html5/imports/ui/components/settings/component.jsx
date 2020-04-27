@@ -4,7 +4,6 @@ import {
   Tab, Tabs, TabList, TabPanel,
 } from 'react-tabs';
 import { defineMessages, injectIntl, intlShape } from 'react-intl';
-import ClosedCaptions from '/imports/ui/components/settings/submenus/closed-captions/component';
 import DataSaving from '/imports/ui/components/settings/submenus/data-saving/component';
 import Application from '/imports/ui/components/settings/submenus/application/component';
 import _ from 'lodash';
@@ -26,10 +25,6 @@ const intlMessages = defineMessages({
   videoTabLabel: {
     id: 'app.settings.videoTab.label',
     description: 'label for video tab',
-  },
-  closecaptionTabLabel: {
-    id: 'app.settings.closedcaptionTab.label',
-    description: 'label for closed-captions tab',
   },
   usersTabLabel: {
     id: 'app.settings.usersTab.label',
@@ -59,6 +54,10 @@ const intlMessages = defineMessages({
     id: 'app.settings.dataSavingTab.label',
     description: 'label for data savings tab',
   },
+  savedAlertLabel: {
+    id: 'app.settings.save-notification.label',
+    description: 'label shown in toast when settings are saved',
+  },
 });
 
 const propTypes = {
@@ -70,25 +69,10 @@ const propTypes = {
   application: PropTypes.shape({
     chatAudioAlerts: PropTypes.bool,
     chatPushAlerts: PropTypes.bool,
+    userJoinAudioAlerts: PropTypes.bool,
     fallbackLocale: PropTypes.string,
     fontSize: PropTypes.string,
     locale: PropTypes.string,
-  }).isRequired,
-  cc: PropTypes.shape({
-    backgroundColor: PropTypes.string,
-    enabled: PropTypes.bool,
-    fontColor: PropTypes.string,
-    fontFamily: PropTypes.string,
-    fontSize: PropTypes.string,
-    takeOwnership: PropTypes.bool,
-  }).isRequired,
-  participants: PropTypes.shape({
-    layout: PropTypes.bool,
-    lockAll: PropTypes.bool,
-    microphone: PropTypes.bool,
-    muteAll: PropTypes.bool,
-    privateChat: PropTypes.bool,
-    publicChat: PropTypes.bool,
   }).isRequired,
   updateSettings: PropTypes.func.isRequired,
   availableLocales: PropTypes.objectOf(PropTypes.array).isRequired,
@@ -104,21 +88,17 @@ class Settings extends Component {
     super(props);
 
     const {
-      dataSaving, participants, cc, application,
+      dataSaving, application,
     } = props;
 
     this.state = {
       current: {
         dataSaving: _.clone(dataSaving),
         application: _.clone(application),
-        cc: _.clone(cc),
-        participants: _.clone(participants),
       },
       saved: {
         dataSaving: _.clone(dataSaving),
         application: _.clone(application),
-        cc: _.clone(cc),
-        participants: _.clone(participants),
       },
       selectedTab: 0,
     };
@@ -148,13 +128,16 @@ class Settings extends Component {
   }
 
   renderModalContent() {
-    const { intl } = this.props;
+    const {
+      intl,
+    } = this.props;
+
     const {
       selectedTab,
       availableLocales,
       current,
-      locales,
     } = this.state;
+
     return (
       <Tabs
         className={styles.tabs}
@@ -176,14 +159,6 @@ class Settings extends Component {
           {/* <Icon iconName='video' className={styles.icon}/> */}
           {/* <span id="videoTab">{intl.formatMessage(intlMessages.videoTabLabel)}</span> */}
           {/* </Tab> */}
-          <Tab
-            className={styles.tabSelector}
-            aria-labelledby="ccTab"
-            selectedClassName={styles.selected}
-          >
-            <Icon iconName="user" className={styles.icon} />
-            <span id="ccTab">{intl.formatMessage(intlMessages.closecaptionTabLabel)}</span>
-          </Tab>
           <Tab
             className={styles.tabSelector}
             aria-labelledby="dataSavingTab"
@@ -213,26 +188,11 @@ class Settings extends Component {
         {/* /> */}
         {/* </TabPanel> */}
         <TabPanel className={styles.tabPanel}>
-          <ClosedCaptions
-            settings={current.cc}
-            handleUpdateSettings={this.handleUpdateSettings}
-            locales={locales}
-          />
-        </TabPanel>
-        <TabPanel className={styles.tabPanel}>
           <DataSaving
             settings={current.dataSaving}
             handleUpdateSettings={this.handleUpdateSettings}
           />
         </TabPanel>
-        {/* { isModerator ? */}
-        {/* <TabPanel className={styles.tabPanel}> */}
-        {/* <Participants */}
-        {/* settings={this.state.current.participants} */}
-        {/* handleUpdateSettings={this.handleUpdateSettings} */}
-        {/* /> */}
-        {/* </TabPanel> */}
-        {/* : null } */}
       </Tabs>
     );
   }
@@ -251,8 +211,7 @@ class Settings extends Component {
         title={intl.formatMessage(intlMessages.SettingsLabel)}
         confirm={{
           callback: () => {
-            this.updateSettings(current);
-            // router.push(location.pathname); // TODO 4767
+            this.updateSettings(current, intl.formatMessage(intlMessages.savedAlertLabel));
             /* We need to use mountModal(null) here to prevent submenu state updates,
             *  from re-opening the modal.
             */

@@ -1,29 +1,17 @@
 import Meetings from '/imports/api/meetings';
+import Users from '/imports/api/users';
 import Auth from '/imports/ui/services/auth';
-import ExternalVideoStreamer from '/imports/api/external-videos';
+import Logger from '/imports/startup/client/logger';
 
+import { getStreamer } from '/imports/api/external-videos';
 import { makeCall } from '/imports/ui/services/api';
 
-const YOUTUBE_PREFIX = 'https://youtube.com/watch?v=';
+import ReactPlayer from 'react-player';
 
-const isUrlEmpty = url => !url || url.length === 0;
-
-const isUrlValid = (url) => {
-  const regexp = RegExp('^(https?://)?(www.)?(youtube.com|youtu.?be)/.+$');
-  return !isUrlEmpty(url) && url.match(regexp);
-};
-
-const getUrlFromVideoId = id => (id ? `${YOUTUBE_PREFIX}${id}` : '');
-
-const videoIdFromUrl = (url) => {
-  const urlObj = new URL(url);
-  const params = new URLSearchParams(urlObj.search);
-
-  return params.get('v');
-};
+const isUrlValid = url => ReactPlayer.canPlay(url);
 
 const startWatching = (url) => {
-  const externalVideoUrl = videoIdFromUrl(url);
+  const externalVideoUrl = url;
   makeCall('startWatchingExternalVideo', { externalVideoUrl });
 };
 
@@ -32,20 +20,25 @@ const stopWatching = () => {
 };
 
 const sendMessage = (event, data) => {
-  ExternalVideoStreamer.emit(event, {
-    ...data,
-    meetingId: Auth.meetingID,
-    userId: Auth.userID,
-  });
+  const meetingId = Auth.meetingID;
+  const userId = Auth.userID;
+
+  makeCall('emitExternalVideoEvent', event, { ...data, meetingId, userId });
 };
 
 const onMessage = (message, func) => {
-  ExternalVideoStreamer.on(message, func);
+  const streamer = getStreamer(Auth.meetingID);
+  streamer.on(message, func);
 };
 
-const getVideoId = () => {
+const removeAllListeners = (eventType) => {
+  const streamer = getStreamer(Auth.meetingID);
+  streamer.removeAllListeners(eventType);
+};
+
+const getVideoUrl = () => {
   const meetingId = Auth.meetingID;
-  const meeting = Meetings.findOne({ meetingId });
+  const meeting = Meetings.findOne({ meetingId }, { fields: { externalVideoUrl: 1 } });
 
   return meeting && meeting.externalVideoUrl;
 };
@@ -53,8 +46,8 @@ const getVideoId = () => {
 export {
   sendMessage,
   onMessage,
-  getVideoId,
-  getUrlFromVideoId,
+  removeAllListeners,
+  getVideoUrl,
   isUrlValid,
   startWatching,
   stopWatching,

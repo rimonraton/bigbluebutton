@@ -41,6 +41,7 @@ public class OfficeToPdfConversionService {
   private OfficeDocumentValidator2 officeDocumentValidator;
   private final OfficeManager officeManager;
   private final OfficeDocumentConverter documentConverter;
+  private boolean skipOfficePrecheck = false;
 
   public OfficeToPdfConversionService() {
     final DefaultOfficeManagerBuilder configuration = new DefaultOfficeManagerBuilder();
@@ -57,16 +58,17 @@ public class OfficeToPdfConversionService {
   public UploadedPresentation convertOfficeToPdf(UploadedPresentation pres) {
     initialize(pres);
     if (SupportedFileTypes.isOfficeFile(pres.getFileType())) {
-      boolean valid = officeDocumentValidator.isValid(pres);
-      if (!valid) {
+      // Check if we need to precheck office document
+      if (!skipOfficePrecheck && officeDocumentValidator.isValid(pres)) {
         Map<String, Object> logData = new HashMap<>();
         logData.put("meetingId", pres.getMeetingId());
         logData.put("presId", pres.getId());
         logData.put("filename", pres.getName());
+        logData.put("logCode", "problems_office_to_pdf_validation");
         logData.put("message", "Problems detected prior to converting the file to PDF.");
         Gson gson = new Gson();
         String logStr = gson.toJson(logData);
-        log.warn("-- analytics -- {}", logStr);
+        log.warn(" --analytics-- data={}", logStr);
 
         pres.setConversionStatus(ConversionMessageConstants.OFFICE_DOC_CONVERSION_INVALID_KEY);
         return pres;
@@ -77,10 +79,11 @@ public class OfficeToPdfConversionService {
         logData.put("meetingId", pres.getMeetingId());
         logData.put("presId", pres.getId());
         logData.put("filename", pres.getName());
+        logData.put("logCode", "office_to_pdf_success");
         logData.put("message", "Successfully converted office file to pdf.");
         Gson gson = new Gson();
         String logStr = gson.toJson(logData);
-        log.info("-- analytics -- {}", logStr);
+        log.info(" --analytics-- data={}", logStr);
 
         makePdfTheUploadedFileAndSetStepAsSuccess(pres, pdfOutput);
       } else {
@@ -88,10 +91,13 @@ public class OfficeToPdfConversionService {
         logData.put("meetingId", pres.getMeetingId());
         logData.put("presId", pres.getId());
         logData.put("filename", pres.getName());
+        logData.put("logCode", "office_to_pdf_failed");
         logData.put("message", "Failed to convert " + pres.getUploadedFile().getAbsolutePath() + " to Pdf.");
         Gson gson = new Gson();
         String logStr = gson.toJson(logData);
-        log.warn("-- analytics -- {}", logStr);
+        log.warn(" --analytics-- data={}", logStr);
+        pres.setConversionStatus(ConversionMessageConstants.OFFICE_DOC_CONVERSION_FAILED_KEY);
+        return pres;
       }
     }
     return pres;
@@ -121,6 +127,10 @@ public class OfficeToPdfConversionService {
 
   public void setOfficeDocumentValidator(OfficeDocumentValidator2 v) {
     officeDocumentValidator = v;
+  }
+
+  public void setSkipOfficePrecheck(boolean skipOfficePrecheck) {
+    this.skipOfficePrecheck = skipOfficePrecheck;
   }
 
   public void start() {

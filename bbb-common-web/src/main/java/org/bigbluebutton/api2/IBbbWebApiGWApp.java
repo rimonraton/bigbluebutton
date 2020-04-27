@@ -2,6 +2,8 @@ package org.bigbluebutton.api2;
 
 import java.util.Map;
 
+import org.bigbluebutton.api.domain.BreakoutRoomsParams;
+import org.bigbluebutton.api.domain.LockSettingsParams;
 import org.bigbluebutton.api.messaging.converters.messages.DestroyMeetingMessage;
 import org.bigbluebutton.api.messaging.converters.messages.EndMeetingMessage;
 import org.bigbluebutton.api.messaging.converters.messages.PublishedRecordingMessage;
@@ -25,7 +27,11 @@ public interface IBbbWebApiGWApp {
                      Integer userInactivityInspectTimerInMinutes,
                      Integer userInactivityThresholdInMinutes,
                      Integer userActivitySignResponseDelayInMinutes,
-                     Boolean muteOnStart);
+                     Boolean muteOnStart,
+                     Boolean allowModsToUnmuteUsers,
+                     Boolean keepEvents,
+                     BreakoutRoomsParams breakoutParams,
+                     LockSettingsParams lockSettingsParams);
 
   void registerUser(String meetingID, String internalUserId, String fullname, String role,
                     String externUserID, String authToken, String avatarURL,

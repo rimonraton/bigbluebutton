@@ -1,60 +1,108 @@
-import React, { PureComponent } from 'react';
+import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { defineMessages } from 'react-intl';
 import Icon from '/imports/ui/components/icon/component';
-import { Session } from 'meteor/session';
-import { styles } from './styles';
+import NoteService from '/imports/ui/components/note/service';
+import { styles } from '/imports/ui/components/user-list/user-list-content/styles';
 
 const propTypes = {
   intl: PropTypes.shape({
     formatMessage: PropTypes.func.isRequired,
   }).isRequired,
+  revs: PropTypes.number.isRequired,
+  isPanelOpened: PropTypes.bool.isRequired,
 };
 
 const intlMessages = defineMessages({
-  notesTitle: {
+  title: {
     id: 'app.userList.notesTitle',
     description: 'Title for the notes list',
   },
-  title: {
+  sharedNotes: {
     id: 'app.note.title',
     description: 'Title for the shared notes',
   },
+  unreadContent: {
+    id: 'app.userList.notesListItem.unreadContent',
+    description: 'Aria label for notes unread content',
+  },
 });
 
-class UserNotes extends PureComponent {
-  render() {
-    const {
-      intl,
-    } = this.props;
+class UserNotes extends Component {
+  constructor(props) {
+    super(props);
 
-    if (!Meteor.settings.public.note.enabled) return null;
-
-    const toggleNotePanel = () => {
-      Session.set(
-        'openPanel',
-        Session.get('openPanel') === 'note'
-          ? 'userlist'
-          : 'note',
-      );
+    this.state = {
+      unread: false,
     };
+  }
+
+  componentDidMount() {
+    const { revs } = this.props;
+
+    if (revs !== 0) this.setState({ unread: true });
+  }
+
+  componentDidUpdate(prevProps) {
+    const { isPanelOpened, revs } = this.props;
+    const { unread } = this.state;
+
+    if (!isPanelOpened && !unread) {
+      if (prevProps.revs !== revs) this.setState({ unread: true });
+    }
+
+    if (isPanelOpened && unread) {
+      this.setState({ unread: false });
+    }
+  }
+
+  renderNotes() {
+    const { intl } = this.props;
+    const { unread } = this.state;
+
+    let notification = null;
+    if (unread) {
+      notification = (
+        <div
+          className={styles.unreadMessages}
+          aria-label={intl.formatMessage(intlMessages.unreadContent)}
+        >
+          <div className={styles.unreadMessagesText} aria-hidden="true">
+            ···
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        className={styles.listItem}
+        onClick={NoteService.toggleNotePanel}
+      >
+        <Icon iconName="copy" />
+        <span aria-hidden>{intl.formatMessage(intlMessages.sharedNotes)}</span>
+        {notification}
+      </div>
+    );
+  }
+
+  render() {
+    const { intl } = this.props;
+
+    if (!NoteService.isEnabled()) return null;
 
     return (
       <div className={styles.messages}>
-        {
+        <div className={styles.container}>
           <h2 className={styles.smallTitle}>
-            {intl.formatMessage(intlMessages.notesTitle)}
+            {intl.formatMessage(intlMessages.title)}
           </h2>
-        }
+        </div>
         <div className={styles.scrollableList}>
-          <div
-            role='button'
-            tabIndex={0}
-            className={styles.noteLink}
-            onClick={toggleNotePanel}
-          >
-            <Icon iconName='copy' className={styles.icon} />
-            <span className={styles.label} >{intl.formatMessage(intlMessages.title)}</span>
+          <div className={styles.list}>
+            {this.renderNotes()}
           </div>
         </div>
       </div>

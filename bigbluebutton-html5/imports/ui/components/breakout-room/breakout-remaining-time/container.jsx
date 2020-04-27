@@ -1,6 +1,7 @@
 import React from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import { defineMessages, injectIntl } from 'react-intl';
+import injectNotify from '/imports/ui/components/toast/inject-notify/component';
 import humanizeSeconds from '/imports/utils/humanizeSeconds';
 import _ from 'lodash';
 import BreakoutRemainingTimeComponent from './component';
@@ -32,6 +33,10 @@ const intlMessages = defineMessages({
   },
 });
 
+let timeRemaining = 0;
+const timeRemainingDep = new Tracker.Dependency();
+let timeRemainingInterval = null;
+
 class breakoutRemainingTimeContainer extends React.Component {
   componentWillUnmount() {
     clearInterval(timeRemainingInterval);
@@ -40,28 +45,24 @@ class breakoutRemainingTimeContainer extends React.Component {
   }
 
   render() {
-    if (_.isEmpty(this.props.message)) {
+    const { message } = this.props;
+    if (_.isEmpty(message)) {
       return null;
     }
     return (
       <BreakoutRemainingTimeComponent>
-        {this.props.message}
+        {message}
       </BreakoutRemainingTimeComponent>
     );
   }
 }
-
-
-let timeRemaining = 0;
-const timeRemainingDep = new Tracker.Dependency();
-let timeRemainingInterval = null;
 
 const getTimeRemaining = () => {
   timeRemainingDep.depend();
   return timeRemaining;
 };
 
-const setTimeRemaining = (sec = 0) => {
+const setTimeRemaining = (sec) => {
   if (sec !== timeRemaining) {
     timeRemaining = sec;
     timeRemainingDep.changed();
@@ -70,14 +71,20 @@ const setTimeRemaining = (sec = 0) => {
 
 const startCounter = (sec, set, get, interval) => {
   clearInterval(interval);
+  if (!sec) return;
   set(sec);
-  return setInterval(() => {
-    set(get() - 1);
-  }, 1000);
+  return setInterval(() => set(get() - 1), 1000);
 };
 
 
-export default injectIntl(withTracker(({ breakoutRoom, intl, messageDuration }) => {
+export default injectNotify(injectIntl(withTracker(({
+  breakoutRoom,
+  intl,
+  notify,
+  messageDuration,
+  timeEndedMessage,
+  alertMessageUnderOneMinute,
+}) => {
   const data = {};
   if (breakoutRoom) {
     const roomRemainingTime = breakoutRoom.timeRemaining;
@@ -94,16 +101,17 @@ export default injectIntl(withTracker(({ breakoutRoom, intl, messageDuration }) 
     clearInterval(timeRemainingInterval);
   }
 
-  if (timeRemaining) {
+  if (timeRemaining >= 0 && timeRemainingInterval) {
     if (timeRemaining > 0) {
       const time = getTimeRemaining();
+      if (time === (1 * 60) && alertMessageUnderOneMinute) notify(alertMessageUnderOneMinute, 'info', 'rooms');
       data.message = intl.formatMessage(messageDuration, { 0: humanizeSeconds(time) });
     } else {
       clearInterval(timeRemainingInterval);
-      data.message = intl.formatMessage(intlMessages.breakoutWillClose);
+      data.message = intl.formatMessage(timeEndedMessage || intlMessages.breakoutWillClose);
     }
   } else if (breakoutRoom) {
     data.message = intl.formatMessage(intlMessages.calculatingBreakoutTimeRemaining);
   }
   return data;
-})(breakoutRemainingTimeContainer));
+})(breakoutRemainingTimeContainer)));

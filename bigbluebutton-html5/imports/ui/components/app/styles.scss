@@ -2,9 +2,10 @@
 @import "/imports/ui/stylesheets/variables/general";
 @import "/imports/ui/stylesheets/variables/palette";
 @import "/imports/ui/stylesheets/variables/typography";
+@import '/imports/ui/stylesheets/mixins/_indicators';
 
 :root {
-  --navbar-height: 63px; // TODO: Change to NavBar real height
+  --navbar-height: 3.9375rem; // TODO: Change to NavBar real height
   --actionsbar-height: 75px; // TODO: Change to ActionsBar real height
   --bars-padding: calc(var(--lg-padding-x) - .45rem); // -.45 so user-list and chat title is aligned with the presentation title
   --userlist-handle-width: 5px; // 5px so user-list and chat resize handle render as the same size
@@ -24,7 +25,8 @@
   text-align: center;
 
   font-size: 1.5rem;
-  padding: var(--bars-padding);
+  padding: var(--bars-padding) var(--bars-padding) 0 var(--bars-padding);
+  height: 7rem;
 }
 
 .wrapper {
@@ -70,8 +72,11 @@
     width: 100%;
     height: 50%;
     opacity: 0;
-    transition: opacity .3s;
     pointer-events: none;
+
+    :global(.animationsEnabled) & {
+      transition: opacity .3s;
+    }
   }
 
   &:before {
@@ -91,13 +96,18 @@
 }
 
 .content{
-  margin-left: var(--panel-margin-left);
+  margin:0 0 0 var(--panel-margin-left);
+
+  [dir="rtl"] & {
+    margin:0 var(--panel-margin-left) 0 0;
+  }
 }
 
 .userList {
   @extend %full-page;
   @extend %text-elipsis;
-
+  @include highContrastOutline();
+  outline-style: solid;
   z-index: 2;
   overflow: visible;
   order: 1;
@@ -109,10 +119,12 @@
   @include mq($medium-up) {
     flex: 0 15vw;
     order: 1;
+    height: 100vh;
   }
 
   @include mq($xlarge-up) {
     flex-basis: 10vw;
+    height: 100vh;
   }
 }
 
@@ -128,9 +140,11 @@
 .poll,
 .breakoutRoom,
 .note,
+.captions,
 .chat {
   @extend %full-page;
-
+  @include highContrastOutline();
+  outline-style: solid;
   order: 2;
   height: 100%;
   @include mq($small-only) {
@@ -162,6 +176,7 @@
   background-color: var(--color-white);
   @include mq($small-only) {
     width: auto;
+    height: auto;
   }
 }
 
@@ -181,26 +196,26 @@
   order: 2;
   flex-direction: row;
   position: relative;
-  margin-left: var(--panel-margin-right);
+  margin: 0 0 0 var(--panel-margin-right);
+  overflow: hidden;
+  z-index: 0;
+
+  [dir="rtl"] & {
+    margin: 0 var(--panel-margin-right) 0 0;
+  }
+
   @include mq($portrait) {
     flex-direction: column;
   }
 }
 
-.closedCaptionBox {
-  position: relative;
-  flex-basis: 15vw;
-  order: 2;
-
-  @include mq($portrait) {
-    min-height: 35%;
-  }
-}
-
-.closedCaptions {
-  order: 3;
-  flex-basis: 20%;
-  max-width: 20%;
+.captionsWrapper {
+  position: absolute;
+  width: auto;
+  height: auto;
+  bottom: 100px;
+  left: 20%;
+  z-index: 2;
 }
 
 .actionsbar {
